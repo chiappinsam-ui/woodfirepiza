@@ -1,88 +1,114 @@
-import os, time, re
-from pathlib import Path
-
-from fastapi import FastAPI, File, UploadFile, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+import os, json, time
+from pathlib import Path
 
 app = FastAPI()
 
-# --- settings ---
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "devtoken")
-SLOT_RE = re.compile(r"^[a-zA-Z0-9_-]{1,80}$")
+# ====== storage on disk (simple) ======
+DATA_DIR = Path("data")
+UPLOADS_DIR = DATA_DIR / "uploads"
+MANIFEST_PATH = DATA_DIR / "manifest.json"
 
-def cache_busted(url: str) -> str:
-    return f"{url}?v={int(time.time())}"
+DATA_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-def check_slot(slot: str):
-    if not SLOT_RE.match(slot):
-        raise HTTPException(400, "Invalid slot")
+def load_manifest():
+    if MANIFEST_PATH.exists():
+        return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    return {}
 
-# --- static mounts ---
-folders = [
-    "assets",
-    "home1_files",          # homepage uses this (your console 404s are from this)
-    "index1_files",
-    "menu2_files",
-    "gallery5_files",
-    "contact6_files",
-    "catering3_files",
-    "bookins4html_files",
-    "uploads",
-]
-for f in folders:
-    if os.path.isdir(f):
-        app.mount(f"/{f}", StaticFiles(directory=f), name=f)
+def save_manifest(m):
+    MANIFEST_PATH.write_text(json.dumps(m, indent=2), encoding="utf-8")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+manifest = load_manifest()
 
-# --- swapper API (MUST be above catch-all) ---
-@app.get("/manifest.json")
-def manifest():
-    return {p.stem: cache_busted(f"/uploads/{p.name}") for p in UPLOAD_DIR.glob("*.jpg")}
+# Serve your normal static assets if needed
+# (adjust folder names if different)
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
-@app.post("/admin/upload/{slot}")
-async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str = Header(None)):
-    check_slot(slot)
+# ====== simple admin auth (header token) ======
+# Set this as a Render env var: ADMIN_TOKEN = something
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "changeme")
+
+def require_admin(x_admin_token: str | None):
     if x_admin_token != ADMIN_TOKEN:
-        raise HTTPException(401, "Invalid Token")
-    content = await file.read()
-    (UPLOAD_DIR / f"{slot}.jpg").write_bytes(content)
-    return {"ok": True, "url": cache_busted(f"/uploads/{slot}.jpg")}
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+# ====== Serve HTML pages ======
+@app.get("/")
+def home():
+    return FileResponse("index1.html")
+
+@app.get("/menu")
+def menu():
+    return FileResponse("menu2.html")
+
+@app.get("/gallery")
+def gallery():
+    return FileResponse("gallery5.html")
+
+@app.get("/contact")
+def contact():
+    return FileResponse("contact6.html")
+
+@app.get("/catering")
+def catering():
+    return FileResponse("catering3.html")
+
+@app.get("/bookings")
+def bookings():
+    return FileResponse("bookins4.html")  # confirm spelling
+
+# ====== Media slot serving ======
+@app.get("/media/{slot}")
+def get_media(slot: str):
+    info = manifest.get(slot)
+    if not info:
+        # return a placeholder or 404
+        raise HTTPException(status_code=404, detail="No image for this slot")
+    path = UPLOADS_DIR / info["stored_name"]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File missing on server")
+    return FileResponse(path)
+
+@app.get("/manifest.json")
+def get_manifest():
+    return JSONResponse(manifest)
+
+# ====== Admin endpoints ======
+@app.post("/admin/upload/{slot}")
+async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | None = Header(default=None)):
+    require_admin(x_admin_token)
+
+    data = await file.read()
+
+    # keep extension if possible
+    ext = Path(file.filename).suffix.lower() or ".bin"
+    stored_name = f"{slot}-{int(time.time())}{ext}"
+    out_path = UPLOADS_DIR / stored_name
+    out_path.write_bytes(data)
+
+    manifest[slot] = {
+        "original": file.filename,
+        "content_type": file.content_type,
+        "stored_name": stored_name,
+        "size": len(data),
+        "updated": int(time.time()),
+    }
+    save_manifest(manifest)
+    return {"ok": True, "slot": slot, **manifest[slot]}
 
 @app.delete("/admin/delete/{slot}")
-def delete(slot: str, x_admin_token: str = Header(None)):
-    check_slot(slot)
-    if x_admin_token != ADMIN_TOKEN:
-        raise HTTPException(401, "Invalid Token")
-    p = UPLOAD_DIR / f"{slot}.jpg"
-    if p.exists():
-        p.unlink()
-    return {"ok": True}
+def delete(slot: str, x_admin_token: str | None = Header(default=None)):
+    require_admin(x_admin_token)
 
-# --- pages ---
-PAGES = {
-    "/": "index1.html",
-    "/menu": "menu2.html",
-    "/gallery": "gallery5.html",
-    "/contact": "contact6.html",
-    "/catering": "catering3.html",
-    "/bookings": "bookins4.html",
-}
-
-@app.get("/{path:path}", include_in_schema=False)
-def serve_pages(path: str):
-    if path == "":
-        return FileResponse(PAGES["/"])
-    page_file = PAGES.get(f"/{path}")
-    if page_file and os.path.exists(page_file):
-        return FileResponse(page_file)
-    raise HTTPException(404)
+    info = manifest.pop(slot, None)
+    if info:
+        path = UPLOADS_DIR / info["stored_name"]
+        if path.exists():
+            path.unlink()
+        save_manifest(manifest)
+    return {"ok": True, "slot": slot}
