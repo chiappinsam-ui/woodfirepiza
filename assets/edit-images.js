@@ -71,7 +71,7 @@
     for (const img of imgs) {
       if (isSkippable(img)) continue;
       const slot = await slotForImg(img);
-      if (manifest[slot]) img.src = manifest[slot];
+      if (manifest[slot]) img.src = `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
     }
   }
 
@@ -129,7 +129,7 @@
     }
 
     const out = await res.json();
-    currentImg.src = out.url;
+    currentImg.src = `/media/${encodeURIComponent(currentSlot)}?v=${Date.now()}`;
   });
 
   function enableEditMode() {

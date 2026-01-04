@@ -6,6 +6,11 @@ from pathlib import Path
 
 app = FastAPI()
 
+# Mount any folders ending in "_files" (Dreamweaver-style exports)
+for name in os.listdir("."):
+    if os.path.isdir(name) and name.endswith("_files"):
+        app.mount(f"/{name}", StaticFiles(directory=name), name=name)
+
 # ====== storage on disk (simple) ======
 DATA_DIR = Path("data")
 UPLOADS_DIR = DATA_DIR / "uploads"
@@ -42,25 +47,49 @@ def require_admin(x_admin_token: str | None):
 def home():
     return FileResponse("index1.html")
 
+@app.get("/index1.html")
+def index1_html():
+    return FileResponse("index1.html")
+
 @app.get("/menu")
 def menu():
+    return FileResponse("menu2.html")
+
+@app.get("/menu2.html")
+def menu2_html():
     return FileResponse("menu2.html")
 
 @app.get("/gallery")
 def gallery():
     return FileResponse("gallery5.html")
 
+@app.get("/gallery5.html")
+def gallery5_html():
+    return FileResponse("gallery5.html")
+
 @app.get("/contact")
 def contact():
+    return FileResponse("contact6.html")
+
+@app.get("/contact6.html")
+def contact6_html():
     return FileResponse("contact6.html")
 
 @app.get("/catering")
 def catering():
     return FileResponse("catering3.html")
 
+@app.get("/catering3.html")
+def catering3_html():
+    return FileResponse("catering3.html")
+
 @app.get("/bookings")
 def bookings():
     return FileResponse("bookins4.html")  # confirm spelling
+
+@app.get("/bookins4.html")
+def bookins4_html():
+    return FileResponse("bookins4.html")
 
 # ====== Media slot serving ======
 @app.get("/media/{slot}")
