@@ -141,3 +141,25 @@ def delete(slot: str, x_admin_token: str | None = Header(default=None)):
             path.unlink()
         save_manifest(manifest)
     return {"ok": True, "slot": slot}
+import os
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+
+app = FastAPI()
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.get("/media/{slot}")
+def get_media(slot: str):
+    # look for any file that starts with "{slot}."
+    for name in os.listdir(UPLOAD_DIR):
+        if name == slot or name.startswith(slot + "."):
+            path = os.path.join(UPLOAD_DIR, name)
+            return FileResponse(path)
+
+    # (optional) return a placeholder instead of 404
+    # return FileResponse("assets/placeholder.png")
+
+    raise HTTPException(status_code=404, detail="Image not found")
+g
