@@ -162,4 +162,3 @@ def get_media(slot: str):
     # return FileResponse("assets/placeholder.png")
 
     raise HTTPException(status_code=404, detail="Image not found")
-g
