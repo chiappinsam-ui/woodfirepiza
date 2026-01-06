@@ -1,48 +1,42 @@
-import os, glob
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-
-app = FastAPI()
-
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-@app.get("/media/{slot}")
-def media(slot: str):
-    # allow either exact file or "slot.jpg/png/webp" etc
-    exact = os.path.join(UPLOAD_DIR, slot)
-    if os.path.isfile(exact):
-        return FileResponse(exact)
-
-    matches = glob.glob(os.path.join(UPLOAD_DIR, slot + ".*"))
-    if matches:
-        return FileResponse(matches[0])
-
-    raise HTTPException(status_code=404, detail="Not Found")
-from fastapi import FastAPI, UploadFile, File, Header, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 import os, json, time
 from pathlib import Path
 
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
 
-# Mount any folders ending in "_files" (Dreamweaver-style exports)
-for name in os.listdir("."):
-    if os.path.isdir(name) and name.endswith("_files"):
-        app.mount(f"/{name}", StaticFiles(directory=name), name=name)
+# ----------------------------
+# Paths (make them robust)
+# ----------------------------
+BASE_DIR = Path(__file__).resolve().parent
 
-# ====== storage on disk (simple) ======
-DATA_DIR = Path("data")
+# HTML files live next to main.py (adjust if you move them into /site)
+INDEX_FILE = BASE_DIR / "index1.html"
+MENU_FILE = BASE_DIR / "menu2.html"
+GALLERY_FILE = BASE_DIR / "gallery5.html"
+CONTACT_FILE = BASE_DIR / "contact6.html"
+CATERING_FILE = BASE_DIR / "catering3.html"
+BOOKINGS_FILE = BASE_DIR / "bookins4.html"
+
+# persistent-ish storage folder (free plan will still reset on redeploy)
+DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
 MANIFEST_PATH = DATA_DIR / "manifest.json"
 
 DATA_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
+# ----------------------------
+# Manifest helpers
+# ----------------------------
 def load_manifest():
     if MANIFEST_PATH.exists():
-        return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        try:
+            return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
     return {}
 
 def save_manifest(m):
@@ -50,92 +44,117 @@ def save_manifest(m):
 
 manifest = load_manifest()
 
-# Serve your normal static assets if needed
-# (adjust folder names if different)
-app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+# ----------------------------
+# Mount folders like *_files if present (optional)
+# ----------------------------
+for name in os.listdir(BASE_DIR):
+    p = BASE_DIR / name
+    if p.is_dir() and name.endswith("_files"):
+        app.mount(f"/{name}", StaticFiles(directory=str(p)), name=name)
+
+# ----------------------------
+# Static assets
+# ----------------------------
+ASSETS_DIR = BASE_DIR / "assets"
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
+# (Optional) expose uploaded files directly (not required if /media works)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
-# ====== simple admin auth (header token) ======
-# Set this as a Render env var: ADMIN_TOKEN = something
+# ----------------------------
+# Admin auth
+# ----------------------------
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "changeme")
 
 def require_admin(x_admin_token: str | None):
     if x_admin_token != ADMIN_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-# ====== Serve HTML pages ======
-@app.get("/")
-def home():
-    return FileResponse("index1.html")
+# ----------------------------
+# Routes: website pages
+# ----------------------------
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/index1.html")
 
-@app.get("/index1.html")
-def index1_html():
-    return FileResponse("index1.html")
-
-@app.get("/menu")
-def menu():
-    return FileResponse("menu2.html")
-
-@app.get("/menu2.html")
-def menu2_html():
-    return FileResponse("menu2.html")
-
-@app.get("/gallery")
-def gallery():
-    return FileResponse("gallery5.html")
-
-@app.get("/gallery5.html")
-def gallery5_html():
-    return FileResponse("gallery5.html")
-
-@app.get("/contact")
-def contact():
-    return FileResponse("contact6.html")
-
-@app.get("/contact6.html")
-def contact6_html():
-    return FileResponse("contact6.html")
-
-@app.get("/catering")
-def catering():
-    return FileResponse("catering3.html")
-
-@app.get("/catering3.html")
-def catering3_html():
-    return FileResponse("catering3.html")
-
-@app.get("/bookings")
-def bookings():
-    return FileResponse("bookins4.html")  # confirm spelling
-
-@app.get("/bookins4.html")
-def bookins4_html():
-    return FileResponse("bookins4.html")
-
-# ====== Media slot serving ======
-@app.get("/media/{slot}")
-def get_media(slot: str):
-    info = manifest.get(slot)
-    if not info:
-        # return a placeholder or 404
-        raise HTTPException(status_code=404, detail="No image for this slot")
-    path = UPLOADS_DIR / info["stored_name"]
+def serve_file(path: Path):
     if not path.exists():
-        raise HTTPException(status_code=404, detail="File missing on server")
-    return FileResponse(path)
+        raise HTTPException(status_code=404, detail=f"File missing: {path.name}")
+    return FileResponse(str(path))
 
-@app.get("/manifest.json")
+@app.get("/index1.html", include_in_schema=False)
+def index1_html():
+    return serve_file(INDEX_FILE)
+
+@app.get("/menu2.html", include_in_schema=False)
+def menu2_html():
+    return serve_file(MENU_FILE)
+
+@app.get("/gallery5.html", include_in_schema=False)
+def gallery5_html():
+    return serve_file(GALLERY_FILE)
+
+@app.get("/contact6.html", include_in_schema=False)
+def contact6_html():
+    return serve_file(CONTACT_FILE)
+
+@app.get("/catering3.html", include_in_schema=False)
+def catering3_html():
+    return serve_file(CATERING_FILE)
+
+@app.get("/bookins4.html", include_in_schema=False)
+def bookins4_html():
+    return serve_file(BOOKINGS_FILE)
+
+# "pretty" routes (optional)
+@app.get("/menu", include_in_schema=False)
+def menu():
+    return RedirectResponse(url="/menu2.html")
+
+@app.get("/gallery", include_in_schema=False)
+def gallery():
+    return RedirectResponse(url="/gallery5.html")
+
+@app.get("/contact", include_in_schema=False)
+def contact():
+    return RedirectResponse(url="/contact6.html")
+
+@app.get("/catering", include_in_schema=False)
+def catering():
+    return RedirectResponse(url="/catering3.html")
+
+@app.get("/bookings", include_in_schema=False)
+def bookings():
+    return RedirectResponse(url="/bookins4.html")
+
+# ----------------------------
+# Media + manifest
+# ----------------------------
+@app.get("/manifest.json", include_in_schema=False)
 def get_manifest():
     return JSONResponse(manifest)
 
-# ====== Admin endpoints ======
+@app.get("/media/{slot}", include_in_schema=False)
+def get_media(slot: str):
+    info = manifest.get(slot)
+    if not info:
+        raise HTTPException(status_code=404, detail="No image for this slot")
+
+    path = UPLOADS_DIR / info["stored_name"]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File missing on server")
+
+    return FileResponse(str(path))
+
+# ----------------------------
+# Admin endpoints
+# ----------------------------
 @app.post("/admin/upload/{slot}")
 async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | None = Header(default=None)):
     require_admin(x_admin_token)
 
     data = await file.read()
-
-    # keep extension if possible
     ext = Path(file.filename).suffix.lower() or ".bin"
     stored_name = f"{slot}-{int(time.time())}{ext}"
     out_path = UPLOADS_DIR / stored_name
@@ -161,30 +180,5 @@ def delete(slot: str, x_admin_token: str | None = Header(default=None)):
         if path.exists():
             path.unlink()
         save_manifest(manifest)
+
     return {"ok": True, "slot": slot}
-import os
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-
-app = FastAPI()
-
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-@app.get("/media/{slot}")
-def get_media(slot: str):
-    # look for any file that starts with "{slot}."
-    for name in os.listdir(UPLOAD_DIR):
-        if name == slot or name.startswith(slot + "."):
-            path = os.path.join(UPLOAD_DIR, name)
-            return FileResponse(path)
-
-    # (optional) return a placeholder instead of 404
-    # return FileResponse("assets/placeholder.png")
-
-    raise HTTPException(status_code=404, detail="Image not found")
-from fastapi.responses import RedirectResponse
-
-@app.get("/", include_in_schema=False)
-def root():
-    return RedirectResponse(url="/index1.html")
