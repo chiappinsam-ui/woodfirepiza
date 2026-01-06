@@ -1,7 +1,28 @@
+import os, glob
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+
+app = FastAPI()
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.get("/media/{slot}")
+def media(slot: str):
+    # allow either exact file or "slot.jpg/png/webp" etc
+    exact = os.path.join(UPLOAD_DIR, slot)
+    if os.path.isfile(exact):
+        return FileResponse(exact)
+
+    matches = glob.glob(os.path.join(UPLOAD_DIR, slot + ".*"))
+    if matches:
+        return FileResponse(matches[0])
+
+    raise HTTPException(status_code=404, detail="Not Found")
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-import os, glob, json, time
+import os, json, time
 from pathlib import Path
 
 app = FastAPI()
@@ -13,12 +34,10 @@ for name in os.listdir("."):
 
 # ====== storage on disk (simple) ======
 DATA_DIR = Path("data")
-DEFAULT_UPLOADS_DIR = DATA_DIR / "uploads"
+UPLOADS_DIR = DATA_DIR / "uploads"
 MANIFEST_PATH = DATA_DIR / "manifest.json"
 
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", str(DEFAULT_UPLOADS_DIR))
 DATA_DIR.mkdir(exist_ok=True)
-UPLOADS_DIR = Path(UPLOAD_DIR)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_manifest():
@@ -30,31 +49,6 @@ def save_manifest(m):
     MANIFEST_PATH.write_text(json.dumps(m, indent=2), encoding="utf-8")
 
 manifest = load_manifest()
-
-# ====== Media slot serving ======
-@app.get("/media/{slot}")
-def media(slot: str):
-    # allow either exact file or slot.jpg/png/webp etc
-    exact = os.path.join(UPLOAD_DIR, slot)
-    if os.path.isfile(exact):
-        return FileResponse(exact)
-
-    matches = glob.glob(os.path.join(UPLOAD_DIR, slot + ".*"))
-    if matches:
-        return FileResponse(matches[0])
-
-    info = manifest.get(slot)
-    if info:
-        path = UPLOADS_DIR / info["stored_name"]
-        if path.exists():
-            return FileResponse(path)
-
-    raise HTTPException(status_code=404, detail="Not Found")
-
-# Public manifest helper
-@app.get("/manifest.json")
-def get_manifest():
-    return JSONResponse(manifest)
 
 # Serve your normal static assets if needed
 # (adjust folder names if different)
@@ -118,6 +112,22 @@ def bookings():
 def bookins4_html():
     return FileResponse("bookins4.html")
 
+# ====== Media slot serving ======
+@app.get("/media/{slot}")
+def get_media(slot: str):
+    info = manifest.get(slot)
+    if not info:
+        # return a placeholder or 404
+        raise HTTPException(status_code=404, detail="No image for this slot")
+    path = UPLOADS_DIR / info["stored_name"]
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File missing on server")
+    return FileResponse(path)
+
+@app.get("/manifest.json")
+def get_manifest():
+    return JSONResponse(manifest)
+
 # ====== Admin endpoints ======
 @app.post("/admin/upload/{slot}")
 async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | None = Header(default=None)):
@@ -152,3 +162,29 @@ def delete(slot: str, x_admin_token: str | None = Header(default=None)):
             path.unlink()
         save_manifest(manifest)
     return {"ok": True, "slot": slot}
+import os
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+
+app = FastAPI()
+
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.get("/media/{slot}")
+def get_media(slot: str):
+    # look for any file that starts with "{slot}."
+    for name in os.listdir(UPLOAD_DIR):
+        if name == slot or name.startswith(slot + "."):
+            path = os.path.join(UPLOAD_DIR, name)
+            return FileResponse(path)
+
+    # (optional) return a placeholder instead of 404
+    # return FileResponse("assets/placeholder.png")
+
+    raise HTTPException(status_code=404, detail="Image not found")
+from fastapi.responses import RedirectResponse
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/index1.html")
