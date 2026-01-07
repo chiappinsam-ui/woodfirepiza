@@ -24,6 +24,7 @@ BOOKINGS_FILE = BASE_DIR / "bookins4.html"
 DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
 MANIFEST_PATH = DATA_DIR / "manifest.json"
+DEFAULTS_DIR = BASE_DIR / "defaults"
 
 DATA_DIR.mkdir(exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -40,6 +41,7 @@ def load_manifest():
     return {}
 
 def save_manifest(m):
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST_PATH.write_text(json.dumps(m, indent=2), encoding="utf-8")
 
 manifest = load_manifest()
@@ -137,15 +139,20 @@ def get_manifest():
 
 @app.get("/media/{slot}", include_in_schema=False)
 def get_media(slot: str):
+    # 1) If we have a replacement in manifest, serve it
     info = manifest.get(slot)
-    if not info:
-        raise HTTPException(status_code=404, detail="No image for this slot")
+    if info:
+        path = UPLOADS_DIR / info["stored_name"]
+        if path.exists():
+            return FileResponse(str(path))
 
-    path = UPLOADS_DIR / info["stored_name"]
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="File missing on server")
+    # 2) Otherwise serve default/original from defaults/
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        p = DEFAULTS_DIR / f"{slot}{ext}"
+        if p.exists():
+            return FileResponse(str(p))
 
-    return FileResponse(str(path))
+    raise HTTPException(status_code=404, detail="No image for this slot")
 
 # ----------------------------
 # Admin endpoints
