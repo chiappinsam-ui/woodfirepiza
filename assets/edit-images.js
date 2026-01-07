@@ -13,6 +13,7 @@
     hoverImg: null,
     hoverSlot: null,
     pickerImg: null,
+    pickerBg: null,
     pickerSlot: null,
   };
 
@@ -40,6 +41,8 @@
       }
       img.__imgEditable { outline: 2px dashed rgba(0,255,255,.35); cursor: pointer; }
       img.__imgEditable:hover { outline-color: rgba(0,255,255,.85); }
+      .__editableBg { outline: 2px dashed rgba(0,255,255,.35); cursor: pointer; }
+      .__editableBg:hover { outline-color: rgba(0,255,255,.85); }
 
       #__imgEditorModal {
         position: fixed; inset: 0; z-index: 1000000;
@@ -184,6 +187,16 @@
         img.src = `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
       }
     }
+
+    document.querySelectorAll("[data-bg-slot]").forEach((el) => {
+      const slot = el.getAttribute("data-bg-slot");
+      if (!slot) return;
+      if (!manifest[slot]) return; // don’t overwrite the original CSS background
+
+      const v = manifest[slot].updated || Date.now();
+      const url = `/media/${encodeURIComponent(slot)}?v=${v}`;
+      el.style.backgroundImage = `url("${url}")`;
+    });
   }
 
   // ---------- Backend calls
@@ -223,11 +236,18 @@
 
   picker.addEventListener("change", async () => {
     const file = picker.files?.[0];
-    if (!file || !state.pickerImg || !state.pickerSlot) return;
+    const target = state.pickerImg || state.pickerBg;
+    if (!file || !target || !state.pickerSlot) return;
 
     try {
       await doUpload(state.pickerSlot, file);
-      state.pickerImg.src = `/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
+      const newUrl = `/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
+
+      if (state.pickerImg) {
+        state.pickerImg.src = newUrl;
+      } else if (state.pickerBg) {
+        state.pickerBg.style.backgroundImage = `url("${newUrl}")`;
+      }
     } catch (err) {
       alert("Upload failed:\n" + (err?.message || String(err)));
     } finally {
@@ -237,6 +257,7 @@
 
   // ---------- Edit mode binding (click any image to replace)
   const bound = new WeakSet();
+  const boundBg = new WeakSet();
 
   async function bindImage(img) {
     if (isSkippable(img)) return;
@@ -252,6 +273,7 @@
       e.stopPropagation();
 
       state.pickerImg = img;
+      state.pickerBg = null;
       state.pickerSlot = await slotForImg(img);
 
       picker.value = "";
@@ -285,12 +307,44 @@
     });
   }
 
+  function makeBgEditable(el) {
+    const slot = el.getAttribute("data-bg-slot");
+    if (!slot) return;
+    if (boundBg.has(el)) return;
+    boundBg.add(el);
+
+    el.classList.add("__editableBg");
+    el.title = "Click to replace this background image";
+
+    el.addEventListener("click", (e) => {
+      if (!isEdit()) return;
+
+      // don’t hijack clicks on real links/buttons inside the slide
+      const t = e.target;
+      if (t && (t.closest("a, button, input, textarea, select, label"))) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      state.pickerBg = el;
+      state.pickerImg = null;
+      state.pickerSlot = slot;
+
+      picker.value = "";
+      picker.click();
+    }, true);
+  }
+
   const mo = new MutationObserver((mutations) => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
         if (!node) continue;
         if (node.tagName === "IMG") bindImage(node);
-        if (node.querySelectorAll) node.querySelectorAll("img").forEach(bindImage);
+        if (node.nodeType === 1 && node.hasAttribute("data-bg-slot")) makeBgEditable(node);
+        if (node.querySelectorAll) {
+          node.querySelectorAll("img").forEach(bindImage);
+          node.querySelectorAll("[data-bg-slot]").forEach(makeBgEditable);
+        }
       }
     }
   });
@@ -299,6 +353,7 @@
     ensureStyles();
     addBadge("EDIT MODE ON — click an image to replace (Ctrl+Alt+E to exit)");
     Array.from(document.images).forEach(bindImage);
+    document.querySelectorAll("[data-bg-slot]").forEach(makeBgEditable);
     mo.observe(document.documentElement, { childList: true, subtree: true });
     state.editing = true;
   }
