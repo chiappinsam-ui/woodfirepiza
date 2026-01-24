@@ -10,8 +10,6 @@
     open: false,
     editing: false,
     token: "",
-    hoverImg: null,
-    hoverSlot: null,
     pickerImg: null,
     pickerBg: null,
     pickerSlot: null,
@@ -27,18 +25,12 @@
     isEdit,
   };
 
-  // ---------- Styles (badge, modal, hover X)
+  // ---------- Styles (modal)
   function ensureStyles() {
     if (document.getElementById("__imgEditorStyles")) return;
     const style = document.createElement("style");
     style.id = "__imgEditorStyles";
     style.textContent = `
-      .__imgEditBadge {
-        position: fixed; right: 14px; bottom: 14px; z-index: 999999;
-        background: rgba(0,0,0,.78); color: #fff; font: 12px/1.2 Arial;
-        padding: 10px 12px; border: 1px solid rgba(255,255,255,.18);
-        border-radius: 12px;
-      }
       img.__imgEditable { outline: 2px dashed rgba(0,255,255,.35); cursor: pointer; }
       img.__imgEditable:hover { outline-color: rgba(0,255,255,.85); }
       .__editableBg { outline: 2px dashed rgba(0,255,255,.35); cursor: pointer; }
@@ -89,37 +81,8 @@
       #__imgEditorModal button:hover { background: rgba(255,255,255,.16); }
       #__imgEditorModal .hint { margin-top: 10px; font-size: 11px; opacity: .7; }
       #__imgEditorModal .error { margin-top: 8px; font-size: 12px; color: #fca5a5; min-height: 16px; }
-
-      /* Floating X button (one button, follows hovered image) */
-      #__imgEditorX {
-        position: fixed;
-        z-index: 999999;
-        display: none;
-        transform: translate(6px, -6px);
-      }
-      #__imgEditorX button {
-        border: none;
-        border-radius: 10px;
-        padding: 6px 9px;
-        cursor: pointer;
-        background: rgba(0,0,0,.70);
-        color: #fff;
-        font-size: 14px;
-        border: 1px solid rgba(255,255,255,.18);
-      }
-      #__imgEditorX button:hover { background: rgba(0,0,0,.85); }
     `;
     document.head.appendChild(style);
-  }
-
-  function addBadge(text) {
-    let badge = document.querySelector(".__imgEditBadge");
-    if (!badge) {
-      badge = document.createElement("div");
-      badge.className = "__imgEditBadge";
-      document.body.appendChild(badge);
-    }
-    badge.textContent = text;
   }
 
   // ---------- Hashing / slot selection
@@ -276,35 +239,9 @@
       state.pickerBg = null;
       state.pickerSlot = await slotForImg(img);
 
-      picker.value = "";
-      picker.click();
+    picker.value = "";
+    picker.click();
     }, true);
-
-    // hover tracking for the X button
-    img.addEventListener("mouseenter", async () => {
-      if (!isEdit()) return;
-      if (isSkippable(img)) return;
-      state.hoverImg = img;
-      state.hoverSlot = await slotForImg(img);
-      positionX();
-      showX();
-    });
-
-    img.addEventListener("mousemove", () => {
-      if (!isEdit()) return;
-      if (state.hoverImg === img) {
-        positionX();
-        showX();
-      }
-    });
-
-    img.addEventListener("mouseleave", () => {
-      if (state.hoverImg === img) {
-        state.hoverImg = null;
-        state.hoverSlot = null;
-        hideX();
-      }
-    });
   }
 
   function makeBgEditable(el) {
@@ -351,7 +288,6 @@
 
   function enableEditMode() {
     ensureStyles();
-    addBadge("EDIT MODE ON — click an image to replace (Ctrl+Alt+E to exit)");
     Array.from(document.images).forEach(bindImage);
     document.querySelectorAll("[data-bg-slot]").forEach(makeBgEditable);
     mo.observe(document.documentElement, { childList: true, subtree: true });
@@ -365,51 +301,6 @@
     url.searchParams.delete("edit");
     location.href = url.toString();
   }
-
-  // ---------- Floating X button
-  const xWrap = document.createElement("div");
-  xWrap.id = "__imgEditorX";
-  xWrap.innerHTML = `<button type="button" title="Delete / Replace">✕</button>`;
-
-  function positionX() {
-    if (!state.hoverImg) return;
-    const r = state.hoverImg.getBoundingClientRect();
-    // top-right corner of hovered image
-    xWrap.style.left = `${r.right}px`;
-    xWrap.style.top = `${r.top}px`;
-  }
-
-  function showX() {
-    xWrap.style.display = "block";
-  }
-  function hideX() {
-    xWrap.style.display = "none";
-  }
-
-  xWrap.querySelector("button").addEventListener("click", async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!state.hoverImg || !state.hoverSlot) return;
-
-    const del = confirm("Delete this image?\n\nOK = Delete\nCancel = Replace");
-    if (!del) {
-      // Replace
-      state.pickerImg = state.hoverImg;
-      state.pickerSlot = state.hoverSlot;
-      picker.value = "";
-      picker.click();
-      return;
-    }
-
-    try {
-      await doDelete(state.hoverSlot);
-      // Hide after delete (you can swap this to a placeholder if you want)
-      state.hoverImg.src = "";
-      hideX();
-    } catch (err) {
-      alert("Delete failed:\n" + (err?.message || String(err)));
-    }
-  });
 
   // ---------- Modal (login menu)
   const modal = document.createElement("div");
@@ -491,7 +382,6 @@
     sessionStorage.setItem(TOKEN_KEY, token);
     sessionStorage.setItem(EDIT_FLAG, "1");
     enableEditMode();
-    addBadge("EDIT MODE ON — click an image to replace (Ctrl+Alt+E to exit)");
   }
 
   // expose a manual opener (super useful for testing)
@@ -509,10 +399,9 @@
     e.preventDefault();
 
     if (!isEdit()) {
-      openLoginAndEnable();
+      openModal(true); // only open the menu
     } else {
-      sessionStorage.removeItem(EDIT_FLAG);
-      location.reload();
+      disableEditMode(); // clean exit
     }
   }
 
@@ -522,23 +411,25 @@
 
   // ---------- Init on load
   document.addEventListener("DOMContentLoaded", () => {
+    ensureStyles();                 // ✅ inject CSS immediately
+    modal.dataset.open = "0";       // ✅ make sure it starts hidden
+
     document.body.appendChild(picker);
     document.body.appendChild(modal);
-    document.body.appendChild(xWrap);
+    // document.body.appendChild(xWrap); // ❌ leave this out if you don’t want the floating X
 
     applyManifestToImages();
 
     const params = new URLSearchParams(location.search);
 
-    // Force open login menu without the keybind:
-    // example: /menu2.html?edit=1
+    // if you still want ?edit=1 to open the menu:
     if (params.get("edit") === "1" && !isEdit()) {
-      openLoginAndEnable();
+      openModal(true);
     }
 
     if (isEdit()) {
       enableEditMode();
-      addBadge("EDIT MODE ON — click an image to replace (Ctrl+Alt+E to exit)");
+      // addBadge(...)  // ❌ leave out so the bottom badge never comes back
     }
   });
 })();
