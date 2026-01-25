@@ -6,6 +6,12 @@
   const EDIT_FLAG = "__EDIT_MODE__";
   const TOKEN_KEY = "__ADMIN_TOKEN__";
 
+  const BACKEND_LOCAL = "http://127.0.0.1:8000";
+  const BACKEND_PROD = "https://YOUR-RENDER-SERVICE.onrender.com";
+  const BACKEND = (location.hostname === "127.0.0.1" || location.hostname === "localhost")
+    ? BACKEND_LOCAL
+    : BACKEND_PROD;
+
   const state = {
     open: false,
     editing: false,
@@ -135,7 +141,7 @@
   async function applyManifestToImages() {
     let manifest = {};
     try {
-      const res = await fetch("/manifest.json", { cache: "no-store" });
+      const res = await fetch(`${BACKEND}/manifest.json`, { cache: "no-store" });
       if (!res.ok) return;
       manifest = await res.json();
     } catch {
@@ -147,7 +153,7 @@
       if (isSkippable(img)) continue;
       const slot = await slotForImg(img);
       if (manifest[slot]) {
-        img.src = `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
+        img.src = `${BACKEND}/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
       }
     }
 
@@ -157,7 +163,7 @@
       if (!manifest[slot]) return; // don’t overwrite the original CSS background
 
       const v = manifest[slot].updated || Date.now();
-      const url = `/media/${encodeURIComponent(slot)}?v=${v}`;
+      const url = `${BACKEND}/media/${encodeURIComponent(slot)}?v=${v}`;
       el.style.backgroundImage = `url("${url}")`;
     });
   }
@@ -170,9 +176,9 @@
     const form = new FormData();
     form.append("file", file);
 
-    const res = await fetch(`/admin/upload/${encodeURIComponent(slot)}`, {
+    const res = await fetch(`${BACKEND}/admin/upload/${encodeURIComponent(slot)}`, {
       method: "POST",
-      headers: { "X-Admin-Token": token },
+      headers: { "x-admin-token": token },
       body: form
     });
 
@@ -183,9 +189,9 @@
     const token = getToken();
     if (!token) throw new Error("No admin token set.");
 
-    const res = await fetch(`/admin/delete/${encodeURIComponent(slot)}`, {
+    const res = await fetch(`${BACKEND}/admin/delete/${encodeURIComponent(slot)}`, {
       method: "DELETE",
-      headers: { "X-Admin-Token": token }
+      headers: { "x-admin-token": token }
     });
 
     if (!res.ok) throw new Error(await res.text());
@@ -204,7 +210,7 @@
 
     try {
       await doUpload(state.pickerSlot, file);
-      const newUrl = `/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
+      const newUrl = `${BACKEND}/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
 
       if (state.pickerImg) {
         state.pickerImg.src = newUrl;

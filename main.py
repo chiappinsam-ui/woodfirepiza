@@ -2,10 +2,27 @@ import os, json, time
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+
+# ----------------------------
+# CORS (allow the production site + local dev)
+# ----------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://mobilewoodfirepizza.com.au",
+        "https://duplicate.mobilewoodfirepizza.com.au",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ----------------------------
 # Paths (make them robust)
@@ -67,10 +84,8 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 # ----------------------------
 # Admin auth
 # ----------------------------
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "changeme")
-
-def require_admin(x_admin_token: str | None):
-    if x_admin_token != ADMIN_TOKEN:
+def require_token(x_admin_token: str = Header(default="")):
+    if x_admin_token != os.environ.get("ADMIN_TOKEN", ""):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 # ----------------------------
@@ -158,8 +173,8 @@ def get_media(slot: str):
 # Admin endpoints
 # ----------------------------
 @app.post("/admin/upload/{slot}")
-async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | None = Header(default=None)):
-    require_admin(x_admin_token)
+async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str = Header(default="")):
+    require_token(x_admin_token)
 
     data = await file.read()
     ext = Path(file.filename).suffix.lower() or ".bin"
@@ -178,8 +193,8 @@ async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | N
     return {"ok": True, "slot": slot, **manifest[slot]}
 
 @app.delete("/admin/delete/{slot}")
-def delete(slot: str, x_admin_token: str | None = Header(default=None)):
-    require_admin(x_admin_token)
+def delete(slot: str, x_admin_token: str = Header(default="")):
+    require_token(x_admin_token)
 
     info = manifest.pop(slot, None)
     if info:
