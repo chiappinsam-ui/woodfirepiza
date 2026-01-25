@@ -399,9 +399,10 @@
     e.preventDefault();
 
     if (!isEdit()) {
-      openModal(true); // only open the menu
+      openModal(true); // Ctrl+Alt+E just opens the menu
     } else {
-      disableEditMode(); // clean exit
+      sessionStorage.removeItem(EDIT_FLAG);
+      location.reload();
     }
   }
 
@@ -411,25 +412,21 @@
 
   // ---------- Init on load
   document.addEventListener("DOMContentLoaded", () => {
-    ensureStyles();                 // ✅ inject CSS immediately
-    modal.dataset.open = "0";       // ✅ make sure it starts hidden
-
     document.body.appendChild(picker);
     document.body.appendChild(modal);
-    // document.body.appendChild(xWrap); // ❌ leave this out if you don’t want the floating X
 
     applyManifestToImages();
 
     const params = new URLSearchParams(location.search);
 
-    // if you still want ?edit=1 to open the menu:
+    // Force open login menu without the keybind:
+    // example: /menu2.html?edit=1
     if (params.get("edit") === "1" && !isEdit()) {
       openModal(true);
     }
 
     if (isEdit()) {
       enableEditMode();
-      // addBadge(...)  // ❌ leave out so the bottom badge never comes back
     }
   });
 })();
