@@ -6,26 +6,6 @@
   const EDIT_FLAG = "__EDIT_MODE__";
   const TOKEN_KEY = "__ADMIN_TOKEN__";
 
-// Backend base URL:
-// - If your HTML sets `window.__BACKEND__ = "https://your-backend-domain"` then API calls go there.
-// - If not set, it uses the same origin as the page.
-const BACKEND = (window.__BACKEND__ || "").toString().replace(/\/$/, "");
-const api = (path) => (BACKEND ? `${BACKEND}${path}` : path);
-const resolveUrl = (u) => {
-  if (!u) return u;
-  if (/^https?:\/\//i.test(u)) return u;
-  if (u.startsWith("/")) return api(u);
-  return api("/" + u);
-};
-
-  function absolutizeMediaImages() {
-    document.querySelectorAll('img[src^="/media/"]').forEach((img) => {
-      const src = img.getAttribute("src") || "";
-      if (!src.startsWith("/media/")) return;
-      img.src = resolveUrl(src);
-    });
-  }
-
   const state = {
     open: false,
     editing: false,
@@ -34,6 +14,18 @@ const resolveUrl = (u) => {
     pickerBg: null,
     pickerSlot: null,
   };
+
+  function forceImgSrc(img, url) {
+    // If srcset exists, the browser may ignore img.src and keep showing a srcset candidate
+    img.removeAttribute("srcset");
+    img.removeAttribute("sizes");
+
+    // Some WP themes also stash lazy attrs; clear the common ones
+    img.removeAttribute("data-srcset");
+    img.removeAttribute("data-sizes");
+
+    img.src = url;
+  }
 
   const isEdit = () => sessionStorage.getItem(EDIT_FLAG) === "1";
   const getToken = () => sessionStorage.getItem(TOKEN_KEY) || "";
@@ -106,10 +98,6 @@ const resolveUrl = (u) => {
   }
 
   // ---------- Hashing / slot selection
-  function cleanSrc(url) {
-    return (url || "").split("?")[0].split("#")[0];
-  }
-
   function fallbackHashHex(str) {
     // simple stable hash (NOT crypto) for environments without crypto.subtle
     let h1 = 0x811c9dc5;
@@ -128,13 +116,31 @@ const resolveUrl = (u) => {
     return arr.map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
-  async function slotForImg(img) {
+  function stableImgKey(img) {
+    // Use the rendered URL if available
+    const src = img.currentSrc || img.src || "";
+
+    // Assign a stable per-page index based on DOM order (only once)
+    if (!img.dataset.editIdx) {
+      const all = Array.from(document.images);
+      const idx = all.indexOf(img);
+      img.dataset.editIdx = String(idx >= 0 ? idx : 0);
+    }
+
+    // Key is per-page + per-image-position + url
+    return `${location.pathname}::${img.dataset.editIdx}::${src}`;
+  }
+
+  async function hashToSlot(key) {
+    const hex = await sha256Hex(key);
+    return "img_" + hex.slice(0, 24);
+  }
+
+  async function makeSlot(img) {
     const ds = (img.dataset && img.dataset.slot) ? img.dataset.slot.trim() : "";
     if (ds) return ds;
-
-    const src = cleanSrc(img.currentSrc || img.src || "");
-    const hex = await sha256Hex(src);
-    return "img_" + hex.slice(0, 24);
+    const key = stableImgKey(img);
+    return hashToSlot(key);
   }
 
   function isSkippable(img) {
@@ -155,7 +161,7 @@ const resolveUrl = (u) => {
   async function applyManifestToImages() {
     let manifest = {};
     try {
-      const res = await fetch(api("/manifest.json"), { cache: "no-store" });
+      const res = await fetch("/manifest.json", { cache: "no-store" });
       if (!res.ok) return;
       manifest = await res.json();
     } catch {
@@ -165,21 +171,29 @@ const resolveUrl = (u) => {
     const imgs = Array.from(document.images);
     for (const img of imgs) {
       if (isSkippable(img)) continue;
-      const slot = await slotForImg(img);
+      const slot = await makeSlot(img);
       if (manifest[slot]) {
-        const url = `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
-        img.src = resolveUrl(url);
+        forceImgSrc(img, `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`);
       }
+    }
+  }
+
+  async function applyManifestToBackgrounds() {
+    let manifest = {};
+    try {
+      const res = await fetch("/manifest.json", { cache: "no-store" });
+      if (!res.ok) return;
+      manifest = await res.json();
+    } catch {
+      return;
     }
 
     document.querySelectorAll("[data-bg-slot]").forEach((el) => {
       const slot = el.getAttribute("data-bg-slot");
       if (!slot) return;
-      if (!manifest[slot]) return; // don’t overwrite the original CSS background
-
-      const v = manifest[slot].updated || Date.now();
-      const url = `/media/${encodeURIComponent(slot)}?v=${v}`;
-      el.style.backgroundImage = `url("${resolveUrl(url)}")`;
+      const info = manifest[slot];
+      if (!info) return;
+      el.style.backgroundImage = `url(/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()})`;
     });
   }
 
@@ -191,7 +205,7 @@ const resolveUrl = (u) => {
     const form = new FormData();
     form.append("file", file);
 
-    const res = await fetch(api(`/admin/upload/${encodeURIComponent(slot)}`), {
+    const res = await fetch(`/admin/upload/${encodeURIComponent(slot)}`, {
       method: "POST",
       headers: { "X-Admin-Token": token },
       body: form
@@ -204,7 +218,7 @@ const resolveUrl = (u) => {
     const token = getToken();
     if (!token) throw new Error("No admin token set.");
 
-    const res = await fetch(api(`/admin/delete/${encodeURIComponent(slot)}`), {
+    const res = await fetch(`/admin/delete/${encodeURIComponent(slot)}`, {
       method: "DELETE",
       headers: { "X-Admin-Token": token }
     });
@@ -225,10 +239,10 @@ const resolveUrl = (u) => {
 
     try {
       await doUpload(state.pickerSlot, file);
-      const newUrl = api(`/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`);
+      const newUrl = `/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
 
       if (state.pickerImg) {
-        state.pickerImg.src = newUrl;
+        forceImgSrc(state.pickerImg, newUrl);
       } else if (state.pickerBg) {
         state.pickerBg.style.backgroundImage = `url("${newUrl}")`;
       }
@@ -258,7 +272,7 @@ const resolveUrl = (u) => {
 
       state.pickerImg = img;
       state.pickerBg = null;
-      state.pickerSlot = await slotForImg(img);
+      state.pickerSlot = await makeSlot(img);
 
     picker.value = "";
     picker.click();
@@ -439,8 +453,8 @@ const resolveUrl = (u) => {
     document.body.appendChild(modal);
     // document.body.appendChild(xWrap); // ❌ leave this out if you don’t want the floating X
 
-    absolutizeMediaImages();
     applyManifestToImages();
+    applyManifestToBackgrounds();
 
     const params = new URLSearchParams(location.search);
 

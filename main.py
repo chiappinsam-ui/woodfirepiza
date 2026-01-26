@@ -172,7 +172,11 @@ def get_media(slot: str):
 # Admin endpoints
 # ----------------------------
 @app.post("/admin/upload/{slot}")
-async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | None = Header(default=None)):
+async def upload(
+    slot: str,
+    file: UploadFile = File(...),
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+):
     require_admin(x_admin_token)
 
     data = await file.read()
@@ -192,7 +196,10 @@ async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | N
     return {"ok": True, "slot": slot, **manifest[slot]}
 
 @app.delete("/admin/delete/{slot}")
-def delete(slot: str, x_admin_token: str | None = Header(default=None)):
+def delete(
+    slot: str,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+):
     require_admin(x_admin_token)
 
     info = manifest.pop(slot, None)
