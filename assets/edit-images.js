@@ -452,11 +452,9 @@
 
     e.preventDefault();
 
-    if (!isEdit()) {
-      openModal(true); // only open the menu
-    } else {
-      disableEditMode(); // clean exit
-    }
+    sessionStorage.setItem(EDIT_FLAG, "1");
+    enableEditMode();
+    openModal(true);
   }
 
   // capture=true makes it MUCH harder for other scripts to swallow it
@@ -477,9 +475,8 @@
 
     const params = new URLSearchParams(location.search);
 
-    // if you still want ?edit=1 to open the menu:
-    if (params.get("edit") === "1" && !isEdit()) {
-      openModal(true);
+    if (params.get("edit") === "1") {
+      sessionStorage.setItem(EDIT_FLAG, "1");
     }
 
     if (isEdit()) {
