@@ -11,7 +11,7 @@
     editing: false,
     token: "",
     pickerImg: null,
-    pickerBg: null,
+    pickerBgEl: null,
     pickerSlot: null,
   };
 
@@ -25,6 +25,13 @@
     img.removeAttribute("data-sizes");
 
     img.src = url;
+  }
+
+  function setBg(el, url) {
+    el.style.backgroundImage = `url("${url}")`;
+    el.style.backgroundSize = el.style.backgroundSize || "cover";
+    el.style.backgroundPosition = el.style.backgroundPosition || "center";
+    el.style.backgroundRepeat = el.style.backgroundRepeat || "no-repeat";
   }
 
   const isEdit = () => sessionStorage.getItem(EDIT_FLAG) === "1";
@@ -193,7 +200,8 @@
       if (!slot) return;
       const info = manifest[slot];
       if (!info) return;
-      el.style.backgroundImage = `url(/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()})`;
+      const url = `/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()}`;
+      setBg(el, url);
     });
   }
 
@@ -232,9 +240,14 @@
   picker.accept = "image/*";
   picker.style.display = "none";
 
+  function openPicker() {
+    picker.value = "";
+    picker.click();
+  }
+
   picker.addEventListener("change", async () => {
     const file = picker.files?.[0];
-    const target = state.pickerImg || state.pickerBg;
+    const target = state.pickerImg || state.pickerBgEl;
     if (!file || !target || !state.pickerSlot) return;
 
     try {
@@ -243,13 +256,14 @@
 
       if (state.pickerImg) {
         forceImgSrc(state.pickerImg, newUrl);
-      } else if (state.pickerBg) {
-        state.pickerBg.style.backgroundImage = `url("${newUrl}")`;
+      } else if (state.pickerBgEl) {
+        setBg(state.pickerBgEl, newUrl);
       }
     } catch (err) {
       alert("Upload failed:\n" + (err?.message || String(err)));
     } finally {
       picker.value = "";
+      state.pickerBgEl = null;
     }
   });
 
@@ -271,11 +285,10 @@
       e.stopPropagation();
 
       state.pickerImg = img;
-      state.pickerBg = null;
+      state.pickerBgEl = null;
       state.pickerSlot = await makeSlot(img);
 
-    picker.value = "";
-    picker.click();
+    openPicker();
     }, true);
   }
 
@@ -298,13 +311,16 @@
       e.preventDefault();
       e.stopPropagation();
 
-      state.pickerBg = el;
+      state.pickerBgEl = el;
       state.pickerImg = null;
       state.pickerSlot = slot;
 
-      picker.value = "";
-      picker.click();
+      openPicker();
     }, true);
+  }
+
+  function bindBackgroundEditors() {
+    document.querySelectorAll("[data-bg-slot]").forEach(makeBgEditable);
   }
 
   const mo = new MutationObserver((mutations) => {
@@ -324,7 +340,7 @@
   function enableEditMode() {
     ensureStyles();
     Array.from(document.images).forEach(bindImage);
-    document.querySelectorAll("[data-bg-slot]").forEach(makeBgEditable);
+    bindBackgroundEditors();
     mo.observe(document.documentElement, { childList: true, subtree: true });
     state.editing = true;
   }
