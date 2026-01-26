@@ -144,10 +144,13 @@
   }
 
   async function makeSlot(img) {
-    const ds = (img.dataset && img.dataset.slot) ? img.dataset.slot.trim() : "";
-    if (ds) return ds;
     const key = stableImgKey(img);
     return hashToSlot(key);
+  }
+
+  async function getSlotForImg(img) {
+    const manual = img.getAttribute("data-edit-slot") || img.getAttribute("data-slot");
+    return manual ? manual : makeSlot(img);
   }
 
   function isSkippable(img) {
@@ -178,7 +181,7 @@
     const imgs = Array.from(document.images);
     for (const img of imgs) {
       if (isSkippable(img)) continue;
-      const slot = await makeSlot(img);
+      const slot = await getSlotForImg(img);
       if (manifest[slot]) {
         forceImgSrc(img, `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`);
       }
@@ -286,7 +289,7 @@
 
       state.pickerImg = img;
       state.pickerBgEl = null;
-      state.pickerSlot = await makeSlot(img);
+      state.pickerSlot = await getSlotForImg(img);
 
     openPicker();
     }, true);
