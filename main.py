@@ -2,24 +2,18 @@ import os, json, time
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# ----------------------------
-# CORS (allow the production site + local dev)
-# ----------------------------
+# CORS: allow your static site (Live Server) to talk to this API.
+# Add/adjust origins as needed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://mobilewoodfirepizza.com.au",
-        "https://duplicate.mobilewoodfirepizza.com.au",
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-    ],
-    allow_credentials=False,
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -36,6 +30,9 @@ GALLERY_FILE = BASE_DIR / "gallery5.html"
 CONTACT_FILE = BASE_DIR / "contact6.html"
 CATERING_FILE = BASE_DIR / "catering3.html"
 BOOKINGS_FILE = BASE_DIR / "bookins4.html"
+
+# Static site root (HTML + assets live alongside main.py)
+SITE_DIR = BASE_DIR
 
 # persistent-ish storage folder (free plan will still reset on redeploy)
 DATA_DIR = BASE_DIR / "data"
@@ -84,8 +81,10 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 # ----------------------------
 # Admin auth
 # ----------------------------
-def require_token(x_admin_token: str = Header(default="")):
-    if x_admin_token != os.environ.get("ADMIN_TOKEN", ""):
+ADMIN_TOKEN = "1234"
+
+def require_admin(x_admin_token: str | None):
+    if (x_admin_token or "").strip() != ADMIN_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 # ----------------------------
@@ -173,8 +172,8 @@ def get_media(slot: str):
 # Admin endpoints
 # ----------------------------
 @app.post("/admin/upload/{slot}")
-async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str = Header(default="")):
-    require_token(x_admin_token)
+async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str | None = Header(default=None)):
+    require_admin(x_admin_token)
 
     data = await file.read()
     ext = Path(file.filename).suffix.lower() or ".bin"
@@ -193,8 +192,8 @@ async def upload(slot: str, file: UploadFile = File(...), x_admin_token: str = H
     return {"ok": True, "slot": slot, **manifest[slot]}
 
 @app.delete("/admin/delete/{slot}")
-def delete(slot: str, x_admin_token: str = Header(default="")):
-    require_token(x_admin_token)
+def delete(slot: str, x_admin_token: str | None = Header(default=None)):
+    require_admin(x_admin_token)
 
     info = manifest.pop(slot, None)
     if info:
@@ -204,3 +203,8 @@ def delete(slot: str, x_admin_token: str = Header(default="")):
         save_manifest(manifest)
 
     return {"ok": True, "slot": slot}
+
+# ----------------------------
+# Serve your HTML and assets from the root
+# ----------------------------
+app.mount("/", StaticFiles(directory=str(SITE_DIR), html=True), name="site")

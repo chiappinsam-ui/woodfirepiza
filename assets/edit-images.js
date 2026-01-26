@@ -6,11 +6,25 @@
   const EDIT_FLAG = "__EDIT_MODE__";
   const TOKEN_KEY = "__ADMIN_TOKEN__";
 
-  const BACKEND_LOCAL = "http://127.0.0.1:8000";
-  const BACKEND_PROD = "https://YOUR-RENDER-SERVICE.onrender.com";
-  const BACKEND = (location.hostname === "127.0.0.1" || location.hostname === "localhost")
-    ? BACKEND_LOCAL
-    : BACKEND_PROD;
+// Backend base URL:
+// - If your HTML sets `window.__BACKEND__ = "https://your-backend-domain"` then API calls go there.
+// - If not set, it uses the same origin as the page.
+const BACKEND = (window.__BACKEND__ || "").toString().replace(/\/$/, "");
+const api = (path) => (BACKEND ? `${BACKEND}${path}` : path);
+const resolveUrl = (u) => {
+  if (!u) return u;
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("/")) return api(u);
+  return api("/" + u);
+};
+
+  function absolutizeMediaImages() {
+    document.querySelectorAll('img[src^="/media/"]').forEach((img) => {
+      const src = img.getAttribute("src") || "";
+      if (!src.startsWith("/media/")) return;
+      img.src = resolveUrl(src);
+    });
+  }
 
   const state = {
     open: false,
@@ -141,7 +155,7 @@
   async function applyManifestToImages() {
     let manifest = {};
     try {
-      const res = await fetch(`${BACKEND}/manifest.json`, { cache: "no-store" });
+      const res = await fetch(api("/manifest.json"), { cache: "no-store" });
       if (!res.ok) return;
       manifest = await res.json();
     } catch {
@@ -153,7 +167,8 @@
       if (isSkippable(img)) continue;
       const slot = await slotForImg(img);
       if (manifest[slot]) {
-        img.src = `${BACKEND}/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
+        const url = `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`;
+        img.src = resolveUrl(url);
       }
     }
 
@@ -163,8 +178,8 @@
       if (!manifest[slot]) return; // don’t overwrite the original CSS background
 
       const v = manifest[slot].updated || Date.now();
-      const url = `${BACKEND}/media/${encodeURIComponent(slot)}?v=${v}`;
-      el.style.backgroundImage = `url("${url}")`;
+      const url = `/media/${encodeURIComponent(slot)}?v=${v}`;
+      el.style.backgroundImage = `url("${resolveUrl(url)}")`;
     });
   }
 
@@ -176,9 +191,9 @@
     const form = new FormData();
     form.append("file", file);
 
-    const res = await fetch(`${BACKEND}/admin/upload/${encodeURIComponent(slot)}`, {
+    const res = await fetch(api(`/admin/upload/${encodeURIComponent(slot)}`), {
       method: "POST",
-      headers: { "x-admin-token": token },
+      headers: { "X-Admin-Token": token },
       body: form
     });
 
@@ -189,9 +204,9 @@
     const token = getToken();
     if (!token) throw new Error("No admin token set.");
 
-    const res = await fetch(`${BACKEND}/admin/delete/${encodeURIComponent(slot)}`, {
+    const res = await fetch(api(`/admin/delete/${encodeURIComponent(slot)}`), {
       method: "DELETE",
-      headers: { "x-admin-token": token }
+      headers: { "X-Admin-Token": token }
     });
 
     if (!res.ok) throw new Error(await res.text());
@@ -210,7 +225,7 @@
 
     try {
       await doUpload(state.pickerSlot, file);
-      const newUrl = `${BACKEND}/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
+      const newUrl = api(`/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`);
 
       if (state.pickerImg) {
         state.pickerImg.src = newUrl;
@@ -405,9 +420,9 @@
     e.preventDefault();
 
     if (!isEdit()) {
-      openModal(true);
+      openModal(true); // only open the menu
     } else {
-      disableEditMode();
+      disableEditMode(); // clean exit
     }
   }
 
@@ -424,6 +439,7 @@
     document.body.appendChild(modal);
     // document.body.appendChild(xWrap); // ❌ leave this out if you don’t want the floating X
 
+    absolutizeMediaImages();
     applyManifestToImages();
 
     const params = new URLSearchParams(location.search);
@@ -437,143 +453,5 @@
       enableEditMode();
       // addBadge(...)  // ❌ leave out so the bottom badge never comes back
     }
-  });
-
-  document.addEventListener("DOMContentLoaded", () => {
-    // ===== Admin UI styling + collapse toggle (drop-in) =====
-    (function fixAdminPanelUI() {
-      // Try to find your admin panel (covers most common names)
-      const panel =
-        document.querySelector("#image-editor-admin") ||
-        document.querySelector(".__imageEditorAdmin") ||
-        document.querySelector(".__adminPanel") ||
-        [...document.querySelectorAll("div")].find(d =>
-          (d.textContent || "").includes("IMAGE EDITOR ADMIN")
-        );
-
-      if (!panel) return;
-
-      // Give it a stable id/class so styling always applies
-      panel.id = "image-editor-admin";
-      panel.classList.add("iea-panel");
-
-      // Add a header row + collapse button (only once)
-      if (!panel.querySelector(".iea-head")) {
-        const head = document.createElement("div");
-        head.className = "iea-head";
-        head.innerHTML = `
-          <div class="iea-title">IMAGE EDITOR ADMIN</div>
-          <div class="iea-actions">
-            <button type="button" class="iea-btn iea-toggle" aria-expanded="true">Hide</button>
-          </div>
-        `;
-
-        // If your panel already has a title line, we’ll keep it but this makes it tidy.
-        panel.prepend(head);
-
-        const toggleBtn = head.querySelector(".iea-toggle");
-        toggleBtn.addEventListener("click", () => {
-          const collapsed = panel.classList.toggle("iea-collapsed");
-          toggleBtn.textContent = collapsed ? "Show" : "Hide";
-          toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        });
-      }
-
-      // Inject CSS once
-      if (!document.getElementById("iea-admin-css")) {
-        const style = document.createElement("style");
-        style.id = "iea-admin-css";
-        style.textContent = `
-          /* Floating admin panel */
-          #image-editor-admin.iea-panel{
-            position: fixed !important;
-            left: 14px !important;
-            bottom: 14px !important;
-            width: min(520px, calc(100vw - 28px)) !important;
-            max-height: min(60vh, 520px) !important;
-            overflow: auto !important;
-            z-index: 2147483647 !important;
-
-            background: rgba(10,10,10,0.92) !important;
-            color: #fff !important;
-            border: 1px solid rgba(255,255,255,0.12) !important;
-            border-radius: 14px !important;
-            padding: 12px !important;
-
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 18px 45px rgba(0,0,0,0.45) !important;
-
-            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
-            line-height: 1.2 !important;
-          }
-
-          /* Header row */
-          #image-editor-admin .iea-head{
-            display:flex !important;
-            align-items:center !important;
-            justify-content:space-between !important;
-            gap: 10px !important;
-            margin-bottom: 10px !important;
-          }
-          #image-editor-admin .iea-title{
-            font-weight: 800 !important;
-            font-size: 12px !important;
-            letter-spacing: 0.08em !important;
-            opacity: 0.95 !important;
-            user-select:none !important;
-          }
-
-          /* Make existing controls look consistent */
-          #image-editor-admin input,
-          #image-editor-admin button{
-            font: inherit !important;
-            border-radius: 10px !important;
-          }
-
-          #image-editor-admin input{
-            width: 100% !important;
-            padding: 10px 12px !important;
-            background: rgba(255,255,255,0.08) !important;
-            color: #fff !important;
-            border: 1px solid rgba(255,255,255,0.14) !important;
-            outline: none !important;
-          }
-          #image-editor-admin input::placeholder{ color: rgba(255,255,255,0.55) !important; }
-
-          #image-editor-admin button{
-            padding: 8px 10px !important;
-            background: rgba(255,255,255,0.10) !important;
-            color:#fff !important;
-            border: 1px solid rgba(255,255,255,0.14) !important;
-            cursor:pointer !important;
-            white-space: nowrap !important;
-          }
-          #image-editor-admin button:hover{
-            background: rgba(255,255,255,0.16) !important;
-          }
-
-          /* Prevent controls from stretching across the whole page */
-          #image-editor-admin .iea-actions{ display:flex !important; gap:8px !important; }
-          #image-editor-admin .iea-btn{ }
-
-          /* Collapse mode: keep just the header visible */
-          #image-editor-admin.iea-collapsed{
-            max-height: unset !important;
-            overflow: hidden !important;
-            padding-bottom: 10px !important;
-          }
-          #image-editor-admin.iea-collapsed > :not(.iea-head){
-            display: none !important;
-          }
-
-          /* If your panel text is large, keep it tidy */
-          #image-editor-admin *{
-            box-sizing: border-box !important;
-          }
-        `;
-        document.head.appendChild(style);
-      }
-    })();
   });
 })();
