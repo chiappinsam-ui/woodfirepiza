@@ -69,8 +69,9 @@ a,abbr,acronym,address,applet,b,big,blockquote,body,center,cite,code,dd,del,dfn,
 <link href="/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fwww.mobilewoodfirepizza.com.au%2Fbookings%2F" rel="alternate" type="application/json+oembed"/>
 <link href="/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fwww.mobilewoodfirepizza.com.au%2Fbookings%2F&amp;format=xml" rel="alternate" type="text/xml+oembed"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"/><link href="./bookins4html_files/MobileWoodfirePizza.png" rel="shortcut icon"/><!-- <link rel="stylesheet" id="et-divi-customizer-global-cached-inline-styles" href="/wp-content/et-cache/global/et-divi-customizer-global.min.css?ver=1767231312" /> -->
-<link href="./bookins4html_files/h6j2i(1).css" media="all" rel="stylesheet" type="text/css"/></head>
-<body class="page-template-default page page-id-532 et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter linux et_pb_gutters3 et_pb_pagebuilder_layout et_smooth_scroll et_no_sidebar et_divi_theme et-db chrome" style="overflow-x: hidden;">
+<link href="./bookins4html_files/h6j2i(1).css" media="all" rel="stylesheet" type="text/css"/>
+</head>
+<body data-page="bookings" class="page-template-default page page-id-532 et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter linux et_pb_gutters3 et_pb_pagebuilder_layout et_smooth_scroll et_no_sidebar et_divi_theme et-db chrome" style="overflow-x: hidden;">
 <div id="page-container" style="padding-top: 68px; overflow-y: hidden;">
 <header data-fixed-height-onload="68" data-height-loaded="true" data-height-onload="68" id="main-header" style="top: 0px;">
 <div class="container clearfix et_menu_container">
@@ -289,9 +290,58 @@ var et_pb_box_shadow_elements = [];
 /* ]]> */
 </script>
 <style id="et-builder-module-design-532-cached-inline-styles">.et_pb_image_0{text-align:left;margin-left:0}.et_pb_image_1{max-width:100px;text-align:left;margin-left:0}.et_pb_blurb_0 .et-pb-icon,.et_pb_blurb_1 .et-pb-icon,.et_pb_blurb_2 .et-pb-icon,.et_pb_blurb_3 .et-pb-icon{color:#000000;font-family:ETmodules!important;font-weight:400!important}div.et_pb_section.et_pb_section_2{background-image:url(https://www.mobilewoodfirepizza.com.au/wp-content/uploads/2017/02/pexels-photo-238306.jpeg.jpg)!important}.et_pb_section_2.et_pb_section{background-color:#ffffff!important}@media only screen and (min-width:981px){.et_pb_image_0{display:none!important}}@media only screen and (max-width:980px){.et_pb_image_0,.et_pb_image_1{text-align:center;margin-left:auto;margin-right:auto}.et_pb_image_0 .et_pb_image_wrap img,.et_pb_image_1 .et_pb_image_wrap img{width:auto}.et_pb_section_2.et_pb_section{padding-top:50px;padding-right:0px;padding-bottom:50px;padding-left:0px}}@media only screen and (min-width:768px) and (max-width:980px){.et_pb_image_1{display:none!important}}@media only screen and (max-width:767px){.et_pb_image_0 .et_pb_image_wrap img,.et_pb_image_1 .et_pb_image_wrap img{width:auto}.et_pb_image_1{display:none!important}}</style>
-
-  <script>
-  window.__BACKEND__ = "http://127.0.0.1:8000";
+<script>
+  window.__R2_API_BASE__ = "http://127.0.0.1:5800";
+  window.SB_PUBLIC_BASE = "https://vzamhsthyascglrvbeje.supabase.co/storage/v1/object/public/photos";
 </script>
-<script src="/assets/edit-images.js"></script>
+<script src="assets/edit-images.js"></script>
+
+<script>
+(async function () {
+  const BASE = (window.__R2_PUBLIC_BASE__ || "").replace(/\/$/, "");
+  if (!BASE) return;
+
+  function trySetImg(img, slot) {
+    const exts = ["webp", "png", "jpg", "jpeg"];
+    let i = 0;
+
+    const setNext = () => {
+      if (i >= exts.length) return;
+      const ext = exts[i++];
+      img.src = `${BASE}/slots/${encodeURIComponent(slot)}.${ext}?v=${Date.now()}`;
+    };
+
+    img.onerror = () => setNext();
+    setNext();
+  }
+
+  document.querySelectorAll("img[data-slot]").forEach(img => {
+    const slot = img.dataset.slot;
+    if (!slot) return;
+    trySetImg(img, slot);
+  });
+
+  // If you also use background slots:
+  // data-bg-slot="hero_slide_0" etc.
+  document.querySelectorAll("[data-bg-slot]").forEach(el => {
+    const slot = el.dataset.bgSlot;
+    if (!slot) return;
+
+    const exts = ["webp", "png", "jpg", "jpeg"];
+    let i = 0;
+
+    const setNext = () => {
+      if (i >= exts.length) return;
+      const ext = exts[i++];
+      const url = `${BASE}/slots/${encodeURIComponent(slot)}.${ext}?v=${Date.now()}`;
+      el.style.backgroundImage = `url("${url}")`;
+    };
+
+    // Backgrounds don't have onerror reliably.
+    // So we just try webp first; if you need robust bg fallback,
+    // I'll give you a preload-based version.
+    setNext();
+  });
+})();
+</script>
 </body></html>
