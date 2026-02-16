@@ -1,15 +1,8 @@
 import os, json, time
 from pathlib import Path
 
-<<<<<<< HEAD
-import httpx
-from bs4 import BeautifulSoup
-from fastapi import FastAPI, UploadFile, File, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, HTMLResponse
-=======
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -90,39 +83,6 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 # ----------------------------
 ADMIN_TOKEN = "1234"
 
-<<<<<<< HEAD
-# ----------------------------
-# Supabase Storage config
-# ----------------------------
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "photos")  # change if needed
-
-def sb_public_url(key: str) -> str:
-    # Only works if bucket is public
-    return f"{SUPABASE_URL}/storage/v1/object/public/{SUPABASE_BUCKET}/{key}"
-
-async def sb_upload_bytes(key: str, data: bytes, content_type: str):
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY on backend",
-        )
-
-    upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_BUCKET}/{key}"
-    headers = {
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "x-upsert": "true",
-        "Content-Type": content_type or "application/octet-stream",
-    }
-
-    async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(upload_url, headers=headers, content=data)
-    if r.status_code >= 300:
-        raise HTTPException(status_code=500, detail=f"Supabase upload failed: {r.status_code} {r.text}")
-
-=======
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
 def require_admin(x_admin_token: str | None):
     if (x_admin_token or "").strip() != ADMIN_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -137,46 +97,6 @@ def root():
 def serve_file(path: Path):
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"File missing: {path.name}")
-<<<<<<< HEAD
-
-    # FIX: If it is an HTML file, inject the new images server-side
-    if path.suffix.lower() == ".html":
-        content = path.read_text(encoding="utf-8")
-        soup = BeautifulSoup(content, "html.parser")
-
-        # 1. Inject Images (<img data-slot="...">)
-        for img in soup.find_all("img", attrs={"data-slot": True}):
-            slot = img["data-slot"]
-            if slot in manifest:
-                info = manifest[slot]
-                # Use public_url (Supabase) if available, otherwise fallback to local media link
-                new_src = info.get("public_url") or f"/media/{slot}?v={info.get('updated', int(time.time()))}"
-
-                img["src"] = new_src
-                # Remove srcset/sizes to prevent the browser from using the old cached versions
-                if img.has_attr("srcset"):
-                    del img["srcset"]
-                if img.has_attr("data-srcset"):
-                    del img["data-srcset"]
-                if img.has_attr("sizes"):
-                    del img["sizes"]
-
-        # 2. Inject Backgrounds (elements with data-bg-slot="...")
-        for tag in soup.find_all(attrs={"data-bg-slot": True}):
-            slot = tag["data-bg-slot"]
-            if slot in manifest:
-                info = manifest[slot]
-                new_url = info.get("public_url") or f"/media/{slot}?v={info.get('updated', int(time.time()))}"
-
-                # Append the new background image to the existing style
-                existing_style = tag.get("style", "")
-                tag["style"] = f"{existing_style}; background-image: url('{new_url}');"
-
-        return HTMLResponse(str(soup))
-
-    # If it's not HTML (like CSS/JS), just send it normally
-=======
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
     return FileResponse(str(path))
 
 @app.get("/index1.html", include_in_schema=False)
@@ -232,41 +152,15 @@ def get_manifest():
     return JSONResponse(manifest)
 
 @app.get("/media/{slot}", include_in_schema=False)
-<<<<<<< HEAD
-def get_media(slot: str, request: Request):
-    info = manifest.get(slot)
-
-    # 1) If manifest has a Supabase public_url, redirect to it
-    if info and info.get("public_url"):
-        url = info["public_url"]
-
-        # carry through ?v=... from /media/<slot>?v=123
-        v = request.query_params.get("v")
-        if v:
-            sep = "&" if "?" in url else "?"
-            url = f"{url}{sep}v={v}"
-
-        resp = RedirectResponse(url=url, status_code=307)
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-
-    # 2) Backwards compatible: local stored_name
-    if info and info.get("stored_name"):
-=======
 def get_media(slot: str):
     # 1) If we have a replacement in manifest, serve it
     info = manifest.get(slot)
     if info:
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
         path = UPLOADS_DIR / info["stored_name"]
         if path.exists():
             return FileResponse(str(path))
 
-<<<<<<< HEAD
-    # 3) Defaults
-=======
     # 2) Otherwise serve default/original from defaults/
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
     for ext in (".jpg", ".jpeg", ".png", ".webp"):
         p = DEFAULTS_DIR / f"{slot}{ext}"
         if p.exists():
@@ -286,41 +180,14 @@ async def upload(
     require_admin(x_admin_token)
 
     data = await file.read()
-<<<<<<< HEAD
-    content_type = file.content_type or "application/octet-stream"
     ext = Path(file.filename).suffix.lower() or ".bin"
-
-    # --- Prefer Supabase if configured ---
-    if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
-        sb_key = f"{slot}{ext}"
-        await sb_upload_bytes(sb_key, data, content_type)
-
-        manifest[slot] = {
-            "original": file.filename,
-            "content_type": content_type,
-            "sb_key": sb_key,
-            "public_url": sb_public_url(sb_key),
-            "size": len(data),
-            "updated": int(time.time()),
-        }
-        save_manifest(manifest)
-        return {"ok": True, "slot": slot, **manifest[slot]}
-
-    # --- Fallback to local disk (only if Supabase not set) ---
-=======
-    ext = Path(file.filename).suffix.lower() or ".bin"
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
     stored_name = f"{slot}-{int(time.time())}{ext}"
     out_path = UPLOADS_DIR / stored_name
     out_path.write_bytes(data)
 
     manifest[slot] = {
         "original": file.filename,
-<<<<<<< HEAD
-        "content_type": content_type,
-=======
         "content_type": file.content_type,
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
         "stored_name": stored_name,
         "size": len(data),
         "updated": int(time.time()),
@@ -328,40 +195,6 @@ async def upload(
     save_manifest(manifest)
     return {"ok": True, "slot": slot, **manifest[slot]}
 
-<<<<<<< HEAD
-@app.post("/admin/upload-sb/{slot}")
-async def upload_sb(
-    slot: str,
-    file: UploadFile = File(...),
-    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
-):
-    require_admin(x_admin_token)
-
-    data = await file.read()
-    content_type = file.content_type or "application/octet-stream"
-
-    # Decide the object name in your bucket:
-    # keep it stable per slot so re-uploads overwrite
-    ext = Path(file.filename).suffix.lower() or ".bin"
-    sb_key = f"{slot}{ext}"
-
-    # Upload to Supabase bucket
-    await sb_upload_bytes(sb_key, data, content_type)
-
-    # Write manifest entry using public_url (NOT stored_name)
-    manifest[slot] = {
-        "original": file.filename,
-        "content_type": content_type,
-        "sb_key": sb_key,
-        "public_url": sb_public_url(sb_key),
-        "size": len(data),
-        "updated": int(time.time()),
-    }
-    save_manifest(manifest)
-    return {"ok": True, "slot": slot, **manifest[slot]}
-
-=======
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
 @app.delete("/admin/delete/{slot}")
 def delete(
     slot: str,
@@ -371,17 +204,9 @@ def delete(
 
     info = manifest.pop(slot, None)
     if info:
-<<<<<<< HEAD
-        stored = info.get("stored_name")
-        if stored:
-            path = UPLOADS_DIR / stored
-            if path.exists():
-                path.unlink()
-=======
         path = UPLOADS_DIR / info["stored_name"]
         if path.exists():
             path.unlink()
->>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
         save_manifest(manifest)
 
     return {"ok": True, "slot": slot}
