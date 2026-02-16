@@ -172,11 +172,8 @@
     for (const img of imgs) {
       if (isSkippable(img)) continue;
       const slot = await makeSlot(img);
-      const scopedSlot = manifestSlotFromSlot(slot);
-      const info = manifest[scopedSlot] || manifest[slot];
-      const lookupSlot = manifest[scopedSlot] ? scopedSlot : slot;
-      if (info) {
-        forceImgSrc(img, `/media/${encodeURIComponent(lookupSlot)}?v=${info.updated || Date.now()}`);
+      if (manifest[slot]) {
+        forceImgSrc(img, `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`);
       }
     }
   }
@@ -194,72 +191,34 @@
     document.querySelectorAll("[data-bg-slot]").forEach((el) => {
       const slot = el.getAttribute("data-bg-slot");
       if (!slot) return;
-      const scopedSlot = manifestSlotFromSlot(slot);
-      const info = manifest[scopedSlot] || manifest[slot];
-      const lookupSlot = manifest[scopedSlot] ? scopedSlot : slot;
+      const info = manifest[slot];
       if (!info) return;
-      el.style.backgroundImage = `url(/media/${encodeURIComponent(lookupSlot)}?v=${info.updated || Date.now()})`;
+      el.style.backgroundImage = `url(/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()})`;
     });
   }
 
   // ---------- Backend calls
-  const API_BASE = (window.__R2_API_BASE__ || "").replace(/\/$/, "");
-
-  function pagePrefix() {
-    return (document.body.getAttribute("data-page") || "page").trim();
-  }
-
-  function manifestSlotFromSlot(slot) {
-    return `${pagePrefix()}__${String(slot || "").trim()}`;
-  }
-
-  function resolvedKeyFromSlot(slot, ext) {
-    const page = pagePrefix();
-    const cleanSlot = String(slot || "").trim();
-    const cleanExt = (ext || "jpg").replace(".", "");
-    // menu__header-image.jpg
-    return `${page}__${cleanSlot}.${cleanExt}`;
-  }
-
-  function sbUrlForKey(key) {
-    const base = (window.SB_PUBLIC_BASE || "").replace(/\/$/, "");
-    const encoded = key.split("/").map(encodeURIComponent).join("/");
-    return `${base}/${encoded}`;
-  }
-
-  async function doUpload(slot, file, extGuess = null) {
+  async function doUpload(slot, file) {
     const token = getToken();
     if (!token) throw new Error("No admin token set.");
 
-    const ext = (extGuess || (file.name.split(".").pop() || "jpg")).toLowerCase();
-    const key = resolvedKeyFromSlot(slot, ext);
+    const form = new FormData();
+    form.append("file", file);
 
-    const res = await fetch(`${API_BASE}/admin/upload-sb`, {
+    const res = await fetch(`/admin/upload/${encodeURIComponent(slot)}`, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": file.type || "application/octet-stream",
-        "X-Key": key,
-        "X-Filename": file.name,
-      },
-      body: file,
+      headers: { "X-Admin-Token": token },
+      body: form
     });
 
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(t || `Upload failed (${res.status})`);
-    }
-
-    const j = await res.json();
-    return (j.publicUrl || sbUrlForKey(key)) + `?v=${Date.now()}`;
+    if (!res.ok) throw new Error(await res.text());
   }
 
   async function doDelete(slot) {
     const token = getToken();
     if (!token) throw new Error("No admin token set.");
-    const scopedSlot = manifestSlotFromSlot(slot);
 
-    const res = await fetch(`${API_BASE}/admin/delete/${encodeURIComponent(scopedSlot)}`, {
+    const res = await fetch(`/admin/delete/${encodeURIComponent(slot)}`, {
       method: "DELETE",
       headers: { "X-Admin-Token": token }
     });
@@ -279,13 +238,13 @@
     if (!file || !target || !state.pickerSlot) return;
 
     try {
-      const slot = state.pickerSlot;
-      const publicUrl = await doUpload(slot, file);
+      await doUpload(state.pickerSlot, file);
+      const newUrl = `/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
 
       if (state.pickerImg) {
-        forceImgSrc(state.pickerImg, publicUrl);
+        forceImgSrc(state.pickerImg, newUrl);
       } else if (state.pickerBg) {
-        state.pickerBg.style.backgroundImage = `url("${publicUrl}")`;
+        state.pickerBg.style.backgroundImage = `url("${newUrl}")`;
       }
     } catch (err) {
       alert("Upload failed:\n" + (err?.message || String(err)));
