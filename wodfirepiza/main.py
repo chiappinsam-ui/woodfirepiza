@@ -1,10 +1,15 @@
 import os, json, time
 from pathlib import Path
 
+<<<<<<< HEAD
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, HTMLResponse
+=======
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -85,6 +90,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 # ----------------------------
 ADMIN_TOKEN = "1234"
 
+<<<<<<< HEAD
 # ----------------------------
 # Supabase Storage config
 # ----------------------------
@@ -115,6 +121,8 @@ async def sb_upload_bytes(key: str, data: bytes, content_type: str):
     if r.status_code >= 300:
         raise HTTPException(status_code=500, detail=f"Supabase upload failed: {r.status_code} {r.text}")
 
+=======
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
 def require_admin(x_admin_token: str | None):
     if (x_admin_token or "").strip() != ADMIN_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -129,6 +137,7 @@ def root():
 def serve_file(path: Path):
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"File missing: {path.name}")
+<<<<<<< HEAD
 
     # FIX: If it is an HTML file, inject the new images server-side
     if path.suffix.lower() == ".html":
@@ -166,6 +175,8 @@ def serve_file(path: Path):
         return HTMLResponse(str(soup))
 
     # If it's not HTML (like CSS/JS), just send it normally
+=======
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
     return FileResponse(str(path))
 
 @app.get("/index1.html", include_in_schema=False)
@@ -221,6 +232,7 @@ def get_manifest():
     return JSONResponse(manifest)
 
 @app.get("/media/{slot}", include_in_schema=False)
+<<<<<<< HEAD
 def get_media(slot: str, request: Request):
     info = manifest.get(slot)
 
@@ -240,11 +252,21 @@ def get_media(slot: str, request: Request):
 
     # 2) Backwards compatible: local stored_name
     if info and info.get("stored_name"):
+=======
+def get_media(slot: str):
+    # 1) If we have a replacement in manifest, serve it
+    info = manifest.get(slot)
+    if info:
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
         path = UPLOADS_DIR / info["stored_name"]
         if path.exists():
             return FileResponse(str(path))
 
+<<<<<<< HEAD
     # 3) Defaults
+=======
+    # 2) Otherwise serve default/original from defaults/
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
     for ext in (".jpg", ".jpeg", ".png", ".webp"):
         p = DEFAULTS_DIR / f"{slot}{ext}"
         if p.exists():
@@ -264,6 +286,7 @@ async def upload(
     require_admin(x_admin_token)
 
     data = await file.read()
+<<<<<<< HEAD
     content_type = file.content_type or "application/octet-stream"
     ext = Path(file.filename).suffix.lower() or ".bin"
 
@@ -284,13 +307,20 @@ async def upload(
         return {"ok": True, "slot": slot, **manifest[slot]}
 
     # --- Fallback to local disk (only if Supabase not set) ---
+=======
+    ext = Path(file.filename).suffix.lower() or ".bin"
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
     stored_name = f"{slot}-{int(time.time())}{ext}"
     out_path = UPLOADS_DIR / stored_name
     out_path.write_bytes(data)
 
     manifest[slot] = {
         "original": file.filename,
+<<<<<<< HEAD
         "content_type": content_type,
+=======
+        "content_type": file.content_type,
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
         "stored_name": stored_name,
         "size": len(data),
         "updated": int(time.time()),
@@ -298,6 +328,7 @@ async def upload(
     save_manifest(manifest)
     return {"ok": True, "slot": slot, **manifest[slot]}
 
+<<<<<<< HEAD
 @app.post("/admin/upload-sb/{slot}")
 async def upload_sb(
     slot: str,
@@ -329,6 +360,8 @@ async def upload_sb(
     save_manifest(manifest)
     return {"ok": True, "slot": slot, **manifest[slot]}
 
+=======
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
 @app.delete("/admin/delete/{slot}")
 def delete(
     slot: str,
@@ -338,11 +371,17 @@ def delete(
 
     info = manifest.pop(slot, None)
     if info:
+<<<<<<< HEAD
         stored = info.get("stored_name")
         if stored:
             path = UPLOADS_DIR / stored
             if path.exists():
                 path.unlink()
+=======
+        path = UPLOADS_DIR / info["stored_name"]
+        if path.exists():
+            path.unlink()
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
         save_manifest(manifest)
 
     return {"ok": True, "slot": slot}

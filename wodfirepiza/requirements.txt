@@ -1,7 +1,10 @@
 fastapi
 uvicorn[standard]
 python-multipart
+<<<<<<< HEAD
 boto3
 python-dotenv
 httpx
 beautifulsoup4
+=======
+>>>>>>> 5ab5bcc52e1b3705f59f209ed8b0f765c84a94ca
