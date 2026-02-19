@@ -182,6 +182,10 @@ def bookings():
 def get_manifest():
     return JSONResponse(manifest)
 
+@app.get("/api/manifest", include_in_schema=False)
+def get_manifest_api():
+    return JSONResponse(manifest)
+
 @app.get("/media/{slot}", include_in_schema=False)
 def get_media(slot: str):
     info = manifest.get(slot)
