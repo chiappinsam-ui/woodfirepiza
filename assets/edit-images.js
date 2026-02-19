@@ -146,20 +146,22 @@
   function isSkippable(img) {
     if (!img) return true;
     if (img.dataset && img.dataset.noedit === "1") return true;
+    const hasSlot = !!(img.dataset && img.dataset.slot && img.dataset.slot.trim());
 
     const src = img.currentSrc || img.src || "";
     if (!src) return true;
-    if (src.startsWith("data:")) return true;
+    if (src.startsWith("data:") && !hasSlot) return true;
     if (src.toLowerCase().endsWith(".svg")) return true;
 
     // ignore tiny UI icons
-    if ((img.naturalWidth && img.naturalWidth < 80) || (img.naturalHeight && img.naturalHeight < 80)) return true;
+    if (((img.naturalWidth && img.naturalWidth < 80) || (img.naturalHeight && img.naturalHeight < 80)) && !hasSlot) return true;
     return false;
   }
 
   // ---------- Apply manifest (shows uploads to normal visitors too)
   async function applyManifestToImages() {
     let manifest = {};
+    const base = (window.SB_PUBLIC_BASE || window.__R2_PUBLIC_BASE__ || "").replace(/\/$/, "");
     try {
       const res = await fetch("/manifest.json", { cache: "no-store" });
       if (!res.ok) return;
@@ -172,14 +174,19 @@
     for (const img of imgs) {
       if (isSkippable(img)) continue;
       const slot = await makeSlot(img);
-      if (manifest[slot]) {
-        forceImgSrc(img, `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`);
-      }
+      const info = manifest[slot];
+      if (!info) continue;
+
+      const fastUrl = info.public_url || (base
+        ? `${base}/slots/${encodeURIComponent(slot)}.webp`
+        : `/media/${encodeURIComponent(slot)}`);
+      forceImgSrc(img, `${fastUrl}?v=${info.updated || Date.now()}`);
     }
   }
 
   async function applyManifestToBackgrounds() {
     let manifest = {};
+    const base = (window.SB_PUBLIC_BASE || window.__R2_PUBLIC_BASE__ || "").replace(/\/$/, "");
     try {
       const res = await fetch("/manifest.json", { cache: "no-store" });
       if (!res.ok) return;
@@ -193,7 +200,10 @@
       if (!slot) return;
       const info = manifest[slot];
       if (!info) return;
-      el.style.backgroundImage = `url(/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()})`;
+      const fastUrl = info.public_url || (base
+        ? `${base}/slots/${encodeURIComponent(slot)}.webp`
+        : `/media/${encodeURIComponent(slot)}`);
+      el.style.backgroundImage = `url("${fastUrl}?v=${info.updated || Date.now()}")`;
     });
   }
 
