@@ -79,6 +79,13 @@ a,abbr,acronym,address,applet,b,big,blockquote,body,center,cite,code,dd,del,dfn,
         transform: none !important; /* Stops the slide effect */
         transition: none !important;
     }
+</style>
+<style>
+  /* Hide images initially to prevent the original image from flashing */
+  img[data-slot], [data-bg-slot] {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
 </style></head>
 <body class="page-template-default page page-id-653 et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter et_pb_gutters3 et_pb_pagebuilder_layout et_smooth_scroll et_no_sidebar et_divi_theme et-db chrome" style="overflow-x: hidden;">
 =======
@@ -91,6 +98,13 @@ a,abbr,acronym,address,applet,b,big,blockquote,body,center,cite,code,dd,del,dfn,
         transform: none !important; /* Stops the slide effect */
         transition: none !important;
     }
+</style>
+<style>
+  /* Hide images initially to prevent the original image from flashing */
+  img[data-slot], [data-bg-slot] {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
 </style></head>
 <body data-page="menu" class="page-template-default page page-id-653 et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter et_pb_gutters3 et_pb_pagebuilder_layout et_smooth_scroll et_no_sidebar et_divi_theme et-db chrome" style="overflow-x: hidden;">
 >>>>>>> 5ab5bcc (changes)
@@ -451,41 +465,80 @@ var et_pb_box_shadow_elements = [".et_pb_fullwidth_slider_1",".et_pb_fullwidth_s
 <script>
 (async function () {
   const BASE = (window.SB_PUBLIC_BASE || "").replace(/\/$/, "");
-  if (!BASE) return;
+  if (!BASE) {
+    // Failsafe: if Supabase URL is missing, reveal everything
+    document.querySelectorAll("[data-slot], [data-bg-slot]").forEach(el => el.style.opacity = "1");
+    return;
+  }
 
   function trySetImg(img, slot) {
     const exts = ["webp", "png", "jpg", "jpeg"];
     let i = 0;
 
     const setNext = () => {
-      if (i >= exts.length) return;
+      if (i >= exts.length) {
+        // Failsafe: If no custom image exists in bucket, unhide the original Divi image
+        img.style.opacity = "1";
+        return;
+      }
       const ext = exts[i++];
-      img.src = `${BASE}/slots/${encodeURIComponent(slot)}.${ext}?v=${Date.now()}`;
+      const testImg = new Image(); // Preload in the background
+
+      testImg.onload = () => {
+        // 1. Found it! Strip Divi's lazy-load attributes so it doesn't fight us
+        img.removeAttribute("srcset");
+        img.removeAttribute("sizes");
+        img.removeAttribute("data-srcset");
+        img.removeAttribute("data-sizes");
+
+        // 2. Swap the source and fade it in smoothly
+        img.src = testImg.src;
+        img.style.opacity = "1";
+      };
+
+      testImg.onerror = () => setNext();
+      testImg.src = `${BASE}/slots/${encodeURIComponent(slot)}.${ext}?v=${Date.now()}`;
     };
 
-    img.onerror = () => setNext();
     setNext();
   }
 
   document.querySelectorAll("img[data-slot]").forEach(img => {
     const slot = img.dataset.slot;
-    if (!slot) return;
+    if (!slot) {
+      img.style.opacity = "1"; // Failsafe
+      return;
+    }
     trySetImg(img, slot);
   });
 
   // Background slots
   document.querySelectorAll("[data-bg-slot]").forEach(el => {
     const slot = el.dataset.bgSlot;
-    if (!slot) return;
+    if (!slot) {
+      el.style.opacity = "1"; // Failsafe
+      return;
+    }
 
     const exts = ["webp", "png", "jpg", "jpeg"];
     let i = 0;
 
     const setNext = () => {
-      if (i >= exts.length) return;
+      if (i >= exts.length) {
+        // Failsafe: reveal original background
+        el.style.opacity = "1";
+        return;
+      }
       const ext = exts[i++];
       const url = `${BASE}/slots/${encodeURIComponent(slot)}.${ext}?v=${Date.now()}`;
-      el.style.backgroundImage = `url("${url}")`;
+
+      const testImg = new Image();
+      testImg.onload = () => {
+        el.style.backgroundImage = `url("${url}")`;
+        el.style.opacity = "1";
+      };
+      testImg.onerror = () => setNext();
+      testImg.src = url;
     };
 
     setNext();
