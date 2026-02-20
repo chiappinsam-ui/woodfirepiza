@@ -1,9 +1,9 @@
-import os, json, time
+import os, json, time, re
 from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -128,6 +128,38 @@ def root():
 def serve_file(path: Path):
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"File missing: {path.name}")
+        
+    # If it's an HTML file, rewrite the image tags on the fly before sending
+    if path.suffix.lower() == ".html":
+        html = path.read_text(encoding="utf-8")
+        
+        # 1. Nuke the srcset and sizes so the browser doesn't try to fetch WordPress images
+        html = re.sub(r'\s+(data-)?srcset="[^"]*"', '', html)
+        html = re.sub(r'\s+(data-)?sizes="[^"]*"', '', html)
+        
+        # 2. Find any image with a data-slot and rewrite its src
+        def swap_img_src(match):
+            tag = match.group(0)
+            slot = re.search(r'data-slot="([^"]+)"', tag).group(1)
+            # Replace whatever the old src was with your fast local media route
+            return re.sub(r'src="[^"]*"', f'src="/media/{slot}"', tag)
+            
+        html = re.sub(r'<img[^>]+data-slot="[^"]*"[^>]*>', swap_img_src, html)
+        
+        # 3. Inject background images instantly for data-bg-slot
+        def swap_bg(match):
+            tag = match.group(0)
+            slot = re.search(r'data-bg-slot="([^"]+)"', tag).group(1)
+            if 'style="' in tag:
+                return re.sub(r'style="([^"]*)"', rf'style="\1; background-image: url(\'/media/{slot}\') !important;"', tag)
+            else:
+                return tag.replace('>', f' style="background-image: url(\'/media/{slot}\') !important;">')
+
+        html = re.sub(r'<[^>]+data-bg-slot="[^"]*"[^>]*>', swap_bg, html)
+        
+        return HTMLResponse(content=html)
+
+    # For non-HTML files, just serve them normally
     return FileResponse(str(path))
 
 @app.get("/index1.html", include_in_schema=False)
