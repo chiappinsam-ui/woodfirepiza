@@ -93,13 +93,6 @@
       #__imgEditorModal button:hover { background: rgba(255,255,255,.16); }
       #__imgEditorModal .hint { margin-top: 10px; font-size: 11px; opacity: .7; }
       #__imgEditorModal .error { margin-top: 8px; font-size: 12px; color: #fca5a5; min-height: 16px; }
-      .et_mobile_menu {
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        position: relative !important;
-        border: 2px dashed red !important;
-      }
     `;
     document.head.appendChild(style);
   }
@@ -347,7 +340,7 @@
       </div>
       <div class="error" data-field="error"></div>
       <div class="hint">
-        Shortcut: Ctrl + Alt + E<br/>
+        Shortcut: Enter<br/>
         Force open: add <b>?edit=1</b> to the URL
       </div>
     </div>
@@ -415,8 +408,8 @@
   window.__OPEN_IMAGE_EDITOR_LOGIN__ = openLoginAndEnable;
 
   function hotkey(e) {
-    const keyIsE = (e.code === "KeyE") || ((e.key || "").toLowerCase() === "e");
-    if (!(e.ctrlKey && e.altKey && keyIsE)) return;
+    // Check if the key pressed was 'Enter'
+    if (e.key !== "Enter") return;
 
     // ignore when typing in inputs
     const t = e.target;
