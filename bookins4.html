@@ -79,40 +79,81 @@ a,abbr,acronym,address,applet,b,big,blockquote,body,center,cite,code,dd,del,dfn,
         transform: none !important; /* Stops the slide effect */
         transition: none !important;
     }
-</style></head>
+</style><style id="mobile-nav-refresh">
+  .site-header {
+    position: relative;
+    z-index: 10000;
+    background: #ffffff;
+    border-bottom: 1px solid #dddddd;
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #ffffff;
+  }
+
+  .brand {
+    color: #111111;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .menu-toggle {
+    background: none;
+    border: 1px solid #333333;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .nav-menu.collapsed {
+    display: none;
+  }
+
+  .nav-menu.open {
+    display: block;
+  }
+
+  .nav-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #f9f9f9;
+  }
+
+  .nav-menu li {
+    border-bottom: 1px solid #dddddd;
+  }
+
+  .nav-menu a {
+    display: block;
+    padding: 15px 20px;
+    text-decoration: none;
+    color: #333333;
+  }
+</style>
+</head>
 <body data-page="bookings" class="page-template-default page page-id-532 et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter linux et_pb_gutters3 et_pb_pagebuilder_layout et_smooth_scroll et_no_sidebar et_divi_theme et-db chrome" style="overflow-x: hidden;">
 <div id="page-container" style="padding-top: 68px; overflow-y: hidden;">
-<header data-fixed-height-onload="68" data-height-loaded="true" data-height-onload="68" id="main-header" style="top: 0px;">
-<div class="container clearfix et_menu_container">
-<div class="logo_container">
-<span class="logo_helper"></span>
-<a href="/">
-<img alt="Mobile Woodfire Pizza" data-actual-height="370" data-actual-width="370" data-height-percentage="75" data-slot="mobilewoodfirepizza" height="370" id="logo" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="370" data-edit-slot="nav-logo-bookings">
-</a>
-</div>
-<div data-fixed-height="40" data-height="54" id="et-top-navigation" style="padding-left: 30px;">
-<nav id="top-menu-nav">
-<ul class="nav" id="top-menu"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-440" id="menu-item-440"><a href="/">Home</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-657" id="menu-item-657"><a href="/menu2.html">Menu</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-701" id="menu-item-701"><a href="/catering3.html">Catering Options</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page current-menu-item page_item page-item-532 current_page_item menu-item-533" id="menu-item-533"><a aria-current="page" href="/bookins4.html">Bookings</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-749" id="menu-item-749"><a href="/gallery5.html">Gallery</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-560" id="menu-item-560"><a href="/contact6.html">Contact</a></li>
-</ul> </nav>
-<div id="et_mobile_nav_menu">
-<div class="mobile_nav closed">
-<span class="select_page">Select Page</span>
-<span class="mobile_menu_bar mobile_menu_bar_toggle"></span>
-<ul class="et_mobile_menu" id="mobile_menu"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-440 et_first_mobile_item" id="menu-item-440"><a href="/">Home</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-657" id="menu-item-657"><a href="/menu2.html">Menu</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-701" id="menu-item-701"><a href="/catering3.html">Catering Options</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page current-menu-item page_item page-item-532 current_page_item menu-item-533" id="menu-item-533"><a aria-current="page" href="/bookins4.html">Bookings</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-749" id="menu-item-749"><a href="/gallery5.html">Gallery</a></li>
-<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-560" id="menu-item-560"><a href="/contact6.html">Contact</a></li>
-</ul></div>
-</div> </div> <!-- #et-top-navigation -->
-</div> <!-- .container -->
-</header> <!-- #main-header -->
+<header class="site-header">
+  <div class="header-top">
+    <a href="/index1.html" class="brand">Mobile Woodfire Pizza</a>
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-controls="main-nav" aria-expanded="false">☰ Menu</button>
+  </div>
+  <nav id="main-nav" class="nav-menu collapsed">
+    <ul>
+      <li><a href="/index1.html">Home</a></li>
+      <li><a href="/menu2.html">Menu</a></li>
+      <li><a href="/catering3.html">Catering Options</a></li>
+      <li><a href="/bookins4.html">Bookings</a></li>
+      <li><a href="/gallery5.html">Gallery</a></li>
+      <li><a href="/contact6.html">Contact</a></li>
+    </ul>
+  </nav>
+</header>
 <div id="et-main-area">
 <div id="main-content">
 <article class="post-532 page type-page status-publish hentry" id="post-532">
@@ -349,5 +390,24 @@ var et_pb_box_shadow_elements = [];
   });
 })();
 </script>
+<script id="mobile-nav-toggle-script">
+  (function () {
+    const menuToggle = document.getElementById("menu-toggle");
+    const mainNav = document.getElementById("main-nav");
+
+    if (!menuToggle || !mainNav) {
+      return;
+    }
+
+    menuToggle.addEventListener("click", function () {
+      const isCollapsed = mainNav.classList.contains("collapsed");
+
+      mainNav.classList.toggle("collapsed");
+      mainNav.classList.toggle("open");
+      menuToggle.setAttribute("aria-expanded", String(isCollapsed));
+    });
+  })();
+</script>
 </body></html>
+
 

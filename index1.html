@@ -81,40 +81,81 @@ a,abbr,acronym,address,applet,b,big,blockquote,body,center,cite,code,dd,del,dfn,
     transition: opacity 0.3s ease-in-out;
   }
 </style>
+<style id="mobile-nav-refresh">
+  .site-header {
+    position: relative;
+    z-index: 10000;
+    background: #ffffff;
+    border-bottom: 1px solid #dddddd;
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #ffffff;
+  }
+
+  .brand {
+    color: #111111;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .menu-toggle {
+    background: none;
+    border: 1px solid #333333;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .nav-menu.collapsed {
+    display: none;
+  }
+
+  .nav-menu.open {
+    display: block;
+  }
+
+  .nav-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #f9f9f9;
+  }
+
+  .nav-menu li {
+    border-bottom: 1px solid #dddddd;
+  }
+
+  .nav-menu a {
+    display: block;
+    padding: 15px 20px;
+    text-decoration: none;
+    color: #333333;
+  }
+</style>
 </head>
 <body data-page="home" class="home page-template-default page page-id-393 et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter et_pb_gutters3 et_pb_pagebuilder_layout et_smooth_scroll et_no_sidebar et_divi_theme et-db chrome" style="overflow-x: hidden;">
 <div id="page-container" style="padding-top: 68px; overflow-y: hidden; margin-top: -15px;" class="et-animated-content">
-<header id="main-header" data-height-onload="68" data-height-loaded="true" data-fixed-height-onload="54" style="top: 0px;" class="et-fixed-header">
-<div class="container clearfix et_menu_container">
-<div class="logo_container">
-<span class="logo_helper"></span>
-<a href="/">
-<img src="./indexnew_files/MobileWoodfirePizza.png" width="370" height="370" alt="Mobile Woodfire Pizza" id="logo" data-height-percentage="75" data-actual-width="370" data-actual-height="370" data-slot="mobilewoodfirepizza" data-edit-slot="nav-logo-index">
-</a>
-</div>
-<div id="et-top-navigation" data-height="54" data-fixed-height="40" style="padding-left: 30px;">
-<nav id="top-menu-nav">
-<ul id="top-menu" class="nav"><li id="menu-item-440" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home current-menu-item page_item page-item-393 current_page_item menu-item-440"><a href="/index1.html" aria-current="page">Home</a></li>
-<li id="menu-item-657" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-657"><a href="/menu2.html">Menu</a></li>
-<li id="menu-item-701" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-701"><a href="/catering3.html">Catering Options</a></li>
-<li id="menu-item-533" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-533"><a href="/bookins4.html">Bookings</a></li>
-<li id="menu-item-749" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-749 et-show-dropdown et-hover"><a href="/gallery5.html">Gallery</a></li>
-<li id="menu-item-560" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-560"><a href="/contact6.html">Contact</a></li>
-</ul>						</nav>
-<div id="et_mobile_nav_menu">
-<div class="mobile_nav closed">
-<span class="select_page">Select Page</span>
-<span class="mobile_menu_bar mobile_menu_bar_toggle"></span>
-<ul id="mobile_menu" class="et_mobile_menu"><li id="menu-item-440" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home current-menu-item page_item page-item-393 current_page_item menu-item-440 et_first_mobile_item"><a href="/index1.html" aria-current="page">Home</a></li>
-<li id="menu-item-657" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-657"><a href="/menu2.html">Menu</a></li>
-<li id="menu-item-701" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-701"><a href="/catering3.html">Catering Options</a></li>
-<li id="menu-item-533" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-533"><a href="/bookins4.html">Bookings</a></li>
-<li id="menu-item-749" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-749"><a href="/gallery5.html">Gallery</a></li>
-<li id="menu-item-560" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-560"><a href="/contact6.html">Contact</a></li>
-</ul></div>
-</div>				</div> <!-- #et-top-navigation -->
-</div> <!-- .container -->
-</header> <!-- #main-header -->
+<header class="site-header">
+  <div class="header-top">
+    <a href="/index1.html" class="brand">Mobile Woodfire Pizza</a>
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-controls="main-nav" aria-expanded="false">☰ Menu</button>
+  </div>
+  <nav id="main-nav" class="nav-menu collapsed">
+    <ul>
+      <li><a href="/index1.html">Home</a></li>
+      <li><a href="/menu2.html">Menu</a></li>
+      <li><a href="/catering3.html">Catering Options</a></li>
+      <li><a href="/bookins4.html">Bookings</a></li>
+      <li><a href="/gallery5.html">Gallery</a></li>
+      <li><a href="/contact6.html">Contact</a></li>
+    </ul>
+  </nav>
+</header>
 <div id="et-main-area">
 <div id="main-content">
 <article id="post-393" class="post-393 page type-page status-publish hentry">
@@ -384,4 +425,23 @@ var et_pb_box_shadow_elements = [".et_pb_fullwidth_slider_0",".et_pb_fullwidth_s
   });
 })();
 </script>
+<script id="mobile-nav-toggle-script">
+  (function () {
+    const menuToggle = document.getElementById("menu-toggle");
+    const mainNav = document.getElementById("main-nav");
+
+    if (!menuToggle || !mainNav) {
+      return;
+    }
+
+    menuToggle.addEventListener("click", function () {
+      const isCollapsed = mainNav.classList.contains("collapsed");
+
+      mainNav.classList.toggle("collapsed");
+      mainNav.classList.toggle("open");
+      menuToggle.setAttribute("aria-expanded", String(isCollapsed));
+    });
+  })();
+</script>
 </body></html>
+

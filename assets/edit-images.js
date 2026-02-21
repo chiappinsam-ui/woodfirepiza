@@ -27,8 +27,8 @@
     img.src = url;
   }
 
-  const isEdit = () => sessionStorage.getItem(EDIT_FLAG) === "1";
-  const getToken = () => sessionStorage.getItem(TOKEN_KEY) || "";
+  const isEdit = () => true;
+  const getToken = () => "1234";
 
   // Expose simple hooks for debugging
   window.__IMG_EDITOR__ = {
@@ -93,6 +93,13 @@
       #__imgEditorModal button:hover { background: rgba(255,255,255,.16); }
       #__imgEditorModal .hint { margin-top: 10px; font-size: 11px; opacity: .7; }
       #__imgEditorModal .error { margin-top: 8px; font-size: 12px; color: #fca5a5; min-height: 16px; }
+      .et_mobile_menu {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        position: relative !important;
+        border: 2px dashed red !important;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -158,22 +165,22 @@
   }
 
   // ---------- Apply manifest (shows uploads to normal visitors too)
+  const API = "http://127.0.0.1:5800";
+
   async function applyManifestToImages() {
     let manifest = {};
     try {
-      const res = await fetch("/manifest.json", { cache: "no-store" });
+      const res = await fetch(`${API}/manifest.json`, { cache: "no-store" });
       if (!res.ok) return;
       manifest = await res.json();
-    } catch {
-      return;
-    }
+    } catch { return; }
 
     const imgs = Array.from(document.images);
     for (const img of imgs) {
       if (isSkippable(img)) continue;
       const slot = await makeSlot(img);
       if (manifest[slot]) {
-        forceImgSrc(img, `/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`);
+        forceImgSrc(img, `${API}/media/${encodeURIComponent(slot)}?v=${manifest[slot].updated || Date.now()}`);
       }
     }
   }
@@ -181,48 +188,33 @@
   async function applyManifestToBackgrounds() {
     let manifest = {};
     try {
-      const res = await fetch("/manifest.json", { cache: "no-store" });
+      const res = await fetch(`${API}/manifest.json`, { cache: "no-store" });
       if (!res.ok) return;
       manifest = await res.json();
-    } catch {
-      return;
-    }
+    } catch { return; }
 
     document.querySelectorAll("[data-bg-slot]").forEach((el) => {
       const slot = el.getAttribute("data-bg-slot");
       if (!slot) return;
       const info = manifest[slot];
       if (!info) return;
-      el.style.backgroundImage = `url(/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()})`;
+      el.style.backgroundImage = `url(${API}/media/${encodeURIComponent(slot)}?v=${info.updated || Date.now()})`;
     });
   }
 
-  // ---------- Backend calls
   async function doUpload(slot, file) {
-    const token = getToken();
-    if (!token) throw new Error("No admin token set.");
-
     const form = new FormData();
     form.append("file", file);
-
-    const res = await fetch(`/admin/upload/${encodeURIComponent(slot)}`, {
-      method: "POST",
-      headers: { "X-Admin-Token": token },
-      body: form
+    const res = await fetch(`${API}/admin/upload/${encodeURIComponent(slot)}`, {
+      method: "POST", headers: { "X-Admin-Token": "1234" }, body: form
     });
-
     if (!res.ok) throw new Error(await res.text());
   }
 
   async function doDelete(slot) {
-    const token = getToken();
-    if (!token) throw new Error("No admin token set.");
-
-    const res = await fetch(`/admin/delete/${encodeURIComponent(slot)}`, {
-      method: "DELETE",
-      headers: { "X-Admin-Token": token }
+    const res = await fetch(`${API}/admin/delete/${encodeURIComponent(slot)}`, {
+      method: "DELETE", headers: { "X-Admin-Token": "1234" }
     });
-
     if (!res.ok) throw new Error(await res.text());
   }
 
@@ -239,7 +231,7 @@
 
     try {
       await doUpload(state.pickerSlot, file);
-      const newUrl = `/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
+      const newUrl = `${API}/media/${encodeURIComponent(state.pickerSlot)}?v=${Date.now()}`;
 
       if (state.pickerImg) {
         forceImgSrc(state.pickerImg, newUrl);
@@ -469,3 +461,18 @@
     }
   });
 })();
+
+// --- MOBILE MENU FIX ---
+document.addEventListener("DOMContentLoaded", () => {
+  // Targets the Divi mobile menu button (whether it's an <a> or a <div>)
+  const mobileBtn = document.querySelector('.mobile_menu_bar') || document.querySelector('#et_mobile_nav_menu a');
+  const mobileMenu = document.querySelector('.et_mobile_menu');
+
+  if (mobileBtn && mobileMenu) {
+    mobileBtn.addEventListener('click', (e) => {
+      e.preventDefault(); // Stops the <a> tag from jumping the page
+      const isVisible = mobileMenu.style.display === 'block';
+      mobileMenu.style.display = isVisible ? 'none' : 'block';
+    });
+  }
+});

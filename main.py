@@ -128,25 +128,53 @@ def root():
 def serve_file(path: Path):
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"File missing: {path.name}")
-        
-    # If it's an HTML file, rewrite the image tags on the fly before sending
+    
     if path.suffix.lower() == ".html":
-        html = path.read_text(encoding="utf-8")
+        # Read the file and ignore heavy decoding errors
+        html = path.read_text(encoding="utf-8", errors="ignore")
         
-        # 1. Nuke the srcset and sizes so the browser doesn't try to fetch WordPress images
+        # 1. Fix the "Weird Writing" (Encoding artifacts)
+        replacements = {
+            "\u00C2": "", "\u00E2\u20AC\u2122": "'", "\u00E2\u20AC\u201C": "-", "\u00E2\u20AC\u0153": '"', "\u00E2\u20AC": '"',
+            "&#8217;": "'", "&#8211;": "-", "&#8220;": '"', "&#8221;": '"',
+            "&#038;": "&", "&nbsp;": " ",
+        }
+        for bad, good in replacements.items():
+            html = html.replace(bad, good)
+            
+        # 2. Fix the Mobile Menu (Force open during Edit Mode)
+        mobile_menu_fix = """
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Loop a check so it pops open the second you hit your edit hotkey
+    setInterval(function() {
+        const mobileMenu = document.querySelector('.et_mobile_menu');
+        const isEditMode = sessionStorage.getItem("__EDIT_MODE__") === "1";
+        
+        if (mobileMenu && isEditMode) {
+            mobileMenu.style.display = 'block';
+            mobileMenu.style.opacity = '1';
+            mobileMenu.style.visibility = 'visible';
+            mobileMenu.style.position = 'relative'; // Stops it from overlapping other content
+        }
+    }, 500);
+});
+</script>
+</body>
+"""
+        html = html.replace("</body>", mobile_menu_fix)
+        
+        # 3. Image rewriting logic (Keep your existing regex logic here)
         html = re.sub(r'\s+(data-)?srcset="[^"]*"', '', html)
         html = re.sub(r'\s+(data-)?sizes="[^"]*"', '', html)
         
-        # 2. Find any image with a data-slot and rewrite its src
         def swap_img_src(match):
             tag = match.group(0)
             slot = re.search(r'data-slot="([^"]+)"', tag).group(1)
-            # Replace whatever the old src was with your fast local media route
             return re.sub(r'src="[^"]*"', f'src="/media/{slot}"', tag)
             
         html = re.sub(r'<img[^>]+data-slot="[^"]*"[^>]*>', swap_img_src, html)
         
-        # 3. Inject background images instantly for data-bg-slot
         def swap_bg(match):
             tag = match.group(0)
             slot = re.search(r'data-bg-slot="([^"]+)"', tag).group(1)
